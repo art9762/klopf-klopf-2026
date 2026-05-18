@@ -22,28 +22,32 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef(0);
   const timeRef = useRef(0);
-  const carsRef = useRef<AmbientCar[]>([]);
+  const carsRef = useRef<AmbientCar[] | null>(null);
+  const propsRef = useRef({ phase, queues, midzone });
+  propsRef.current = { phase, queues, midzone };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    // Init ambient cars
-    const cars: AmbientCar[] = [];
-    for (let i = 0; i < 8; i++) {
-      const goesRight = i % 2 === 0;
-      cars.push({
-        x: Math.random() * 800 + 50,
-        y: goesRight ? 0.62 : 0.38,
-        speed: 0.4 + Math.random() * 0.3,
-        baseSpeed: 0.4 + Math.random() * 0.3,
-        direction: goesRight ? 1 : -1,
-        color: ['#60a5fa', '#38bdf8', '#818cf8', '#a78bfa', '#34d399'][i % 5],
-        size: 14 + Math.random() * 6,
-      });
+    // Init ambient cars ONCE
+    if (!carsRef.current) {
+      const cars: AmbientCar[] = [];
+      for (let i = 0; i < 8; i++) {
+        const goesRight = i % 2 === 0;
+        cars.push({
+          x: (i * 120) + 50,
+          y: goesRight ? 0.62 : 0.38,
+          speed: 0.4 + (i % 3) * 0.15,
+          baseSpeed: 0.4 + (i % 3) * 0.15,
+          direction: goesRight ? 1 : -1,
+          color: ['#60a5fa', '#38bdf8', '#818cf8', '#a78bfa', '#34d399'][i % 5],
+          size: 14 + (i % 3) * 3,
+        });
+      }
+      carsRef.current = cars;
     }
-    carsRef.current = cars;
 
     const observer = new ResizeObserver(() => {
       canvas.width = container.clientWidth * 2;
@@ -71,7 +75,7 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
       cancelAnimationFrame(frameRef.current);
       observer.disconnect();
     };
-  });
+  }, []);
 
   function draw() {
     const canvas = canvasRef.current;
@@ -81,6 +85,7 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     const W = canvas.width;
     const H = canvas.height;
     const t = timeRef.current;
+    const { phase, queues, midzone } = propsRef.current;
 
     ctx.clearRect(0, 0, W, H);
 
