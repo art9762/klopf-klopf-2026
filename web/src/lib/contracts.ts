@@ -15,7 +15,7 @@ export interface MidzoneStatus {
 }
 
 // Phase state (topic: traffic/state/phase)
-export type Phase = 'GREEN_A' | 'GREEN_B' | 'ALL_RED' | 'EMERGENCY';
+export type Phase = 'GREEN_A' | 'GREEN_B' | 'ALL_RED_A_to_B' | 'ALL_RED_B_to_A' | 'EMERGENCY' | 'MANUAL';
 
 export interface PhaseState {
   ts: number;
