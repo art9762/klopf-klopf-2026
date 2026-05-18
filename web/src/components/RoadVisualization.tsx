@@ -99,6 +99,9 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     const H = canvas.height;
     const t = timeRef.current;
 
+    const isAGreen = phase === 'GREEN_A';
+    const isBGreen = phase === 'GREEN_B';
+
     ctx.clearRect(0, 0, W, H);
 
     // All coordinates in normalized [0,1] then scaled
@@ -178,8 +181,6 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     ctx.stroke();
 
     // Traffic lights
-    const isAGreen = phase === 'GREEN_A';
-    const isBGreen = phase === 'GREEN_B';
     drawLight(ctx, stopA, roadTop - H * 0.02, H * 0.18, isAGreen, t);
     drawLight(ctx, stopB, roadTop - H * 0.02, H * 0.18, isBGreen, t);
 
