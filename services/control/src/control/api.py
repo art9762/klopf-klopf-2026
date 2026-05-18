@@ -34,7 +34,7 @@ class HealthResponse(BaseModel):
 @router.post("/scenario/start")
 async def start_scenario(body: ScenarioStartRequest) -> dict[str, Any]:
     if _mqtt_bridge is not None:
-        await _mqtt_bridge.publish(
+        _mqtt_bridge.publish(
             "traffic/cmd/scenario",
             {"scenario_id": body.scenario_id, "mode": body.mode},
         )
@@ -44,7 +44,7 @@ async def start_scenario(body: ScenarioStartRequest) -> dict[str, Any]:
 @router.post("/override")
 async def override(body: OverrideRequest) -> dict[str, Any]:
     if _mqtt_bridge is not None:
-        await _mqtt_bridge.publish(
+        _mqtt_bridge.publish(
             "traffic/cmd/override",
             {"action": body.action, "operator": body.operator},
         )
@@ -55,7 +55,7 @@ async def override(body: OverrideRequest) -> dict[str, Any]:
 async def compare_metrics(scenario_id: Optional[str] = None) -> dict[str, Any]:
     if _storage is None:
         return {"data": [], "scenario_id": scenario_id}
-    data = await _storage.get_comparison(scenario_id)
+    data = await _storage.get_comparison_data(scenario_id)
     return {"data": data, "scenario_id": scenario_id}
 
 

@@ -38,4 +38,7 @@ Thumbs.db
 # InfluxDB data
 influxdb-data/
 
+# Claude Code
+.claude/
+
 #CLAUDE

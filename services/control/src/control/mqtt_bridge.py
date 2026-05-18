@@ -60,6 +60,9 @@ class MqttBridge:
     def publish_event(self, event: dict[str, Any]) -> None:
         self._publish("traffic/event/log", event)
 
+    def publish(self, topic: str, payload: dict[str, Any]) -> None:
+        self._client.publish(topic, json.dumps(payload))
+
     def _publish(self, topic: str, payload: dict[str, Any]) -> None:
         self._client.publish(topic, json.dumps(payload))
 
