@@ -79,6 +79,11 @@ class Controller:
 
             self.fsm.tick()
 
+            # Broadcast current state every tick
+            phase_state = self.fsm.state_snapshot().model_dump()
+            phase_state['phase'] = phase_state['phase'].value if hasattr(phase_state['phase'], 'value') else phase_state['phase']
+            await self.gateway.broadcast("traffic/state/phase", phase_state)
+
             self._update_metrics()
             self.mqtt.publish_queues({
                 "ts": now,
@@ -102,10 +107,17 @@ class Controller:
 
     def _on_phase_change(self, state: PhaseState) -> None:
         self.mqtt.publish_phase(state.model_dump())
-        asyncio.ensure_future(self.gateway.broadcast("traffic/state/phase", state.model_dump()))
-        asyncio.ensure_future(
-            self.storage.log_phase(state.ts, state.phase.value, state.reason, 0.0)
-        )
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.gateway.broadcast("traffic/state/phase", state.model_dump()))
+            loop.create_task(
+                self._emit_event("info", "PHASE_CHANGE", f"phase → {state.phase.value} ({state.reason})")
+            )
+            loop.create_task(
+                self.storage.log_phase(state.ts, state.phase.value, state.reason, 0.0)
+            )
+        except RuntimeError:
+            pass
 
     def _handle_entry(self, side: str, vehicle_id: str, vehicle_class: str, confidence: float, ts: float) -> None:
         self.safety.on_entry(side, vehicle_id)
