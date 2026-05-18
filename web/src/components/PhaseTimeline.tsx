@@ -13,12 +13,21 @@ interface Props {
 }
 
 const PHASE_COLORS: Record<Phase, string> = {
-  GREEN_A: '#22c55e',
-  GREEN_B: '#3b82f6',
-  ALL_RED_A_to_B: '#ef4444',
-  ALL_RED_B_to_A: '#ef4444',
-  EMERGENCY: '#f59e0b',
+  GREEN_A: '#10B981',
+  GREEN_B: '#3B82F6',
+  ALL_RED_A_to_B: '#EF4444',
+  ALL_RED_B_to_A: '#EF4444',
+  EMERGENCY: '#F59E0B',
   MANUAL: '#a855f7',
+};
+
+const PHASE_GLOWS: Record<Phase, string> = {
+  GREEN_A: '0 0 15px rgba(16,185,129,0.3)',
+  GREEN_B: '0 0 15px rgba(59,130,246,0.3)',
+  ALL_RED_A_to_B: '0 0 15px rgba(239,68,68,0.3)',
+  ALL_RED_B_to_A: '0 0 15px rgba(239,68,68,0.3)',
+  EMERGENCY: '0 0 15px rgba(245,158,11,0.3)',
+  MANUAL: '0 0 15px rgba(168,85,247,0.3)',
 };
 
 const PHASE_LABELS: Record<Phase, string> = {
@@ -31,6 +40,12 @@ const PHASE_LABELS: Record<Phase, string> = {
 };
 
 const WINDOW_SEC = 300;
+
+const LEGEND: { phase: Phase; label: string; color: string }[] = [
+  { phase: 'GREEN_A', label: 'Grn A', color: '#10B981' },
+  { phase: 'GREEN_B', label: 'Grn B', color: '#3B82F6' },
+  { phase: 'ALL_RED_A_to_B', label: 'Red', color: '#EF4444' },
+];
 
 export function PhaseTimeline({ history, currentPhase, currentPhaseStartedAt }: Props) {
   const now = Date.now() / 1000;
@@ -58,21 +73,28 @@ export function PhaseTimeline({ history, currentPhase, currentPhaseStartedAt }: 
   }
 
   return (
-    <div className="card p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-400">Phase Timeline (5 min)</span>
-        <div className="flex items-center gap-3">
-          {([['GREEN_A', 'Green A'], ['GREEN_B', 'Green B'], ['ALL_RED_A_to_B', 'All Red'], ['EMERGENCY', 'Emergency'], ['MANUAL', 'Manual']] as [Phase, string][]).map(([p, label]) => (
-            <div key={p} className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: PHASE_COLORS[p] }} />
-              <span className="text-[10px] text-gray-500">{label}</span>
+    <div className="glass-panel rounded-2xl p-6 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-[#e2e2e6]">
+          <span className="material-symbols-outlined text-[18px] text-[#adc7ff]">timeline</span>
+          Phase Timeline (5 min)
+        </h2>
+        <div className="flex gap-3 text-[10px] font-bold uppercase tracking-[0.05em] text-[#c1c6d7]">
+          {LEGEND.map(({ phase, label, color }) => (
+            <div key={phase} className="flex items-center gap-1">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: color, boxShadow: `0 0 5px ${color}` }}
+              />
+              <span>{label}</span>
             </div>
           ))}
         </div>
       </div>
-      <div className="flex h-8 w-full overflow-hidden rounded-md">
+
+      <div className="relative flex h-10 w-full overflow-hidden rounded-lg border border-[#414754]/30 bg-[#0c0e11]/50 shadow-inner backdrop-blur-sm">
         {segments.length === 0 && (
-          <div className="flex h-full w-full items-center justify-center bg-gray-800 text-xs text-gray-600">
+          <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-[0.05em] text-[#c1c6d7]/60">
             Waiting for data...
           </div>
         )}
@@ -82,13 +104,12 @@ export function PhaseTimeline({ history, currentPhase, currentPhaseStartedAt }: 
           return (
             <div
               key={i}
-              className={`flex items-center justify-center text-[10px] font-bold text-white/90 transition-all ${
-                seg.isCurrent ? 'animate-pulse-glow' : ''
-              }`}
+              className="flex h-full items-center justify-center border-l border-[#0c0e11]/50 text-[10px] font-bold uppercase tracking-[0.05em] text-white backdrop-blur-md transition-all first:border-l-0"
               style={{
                 width: `${width}%`,
-                backgroundColor: PHASE_COLORS[seg.phase],
+                backgroundColor: `${PHASE_COLORS[seg.phase]}cc`,
                 minWidth: '2px',
+                boxShadow: seg.isCurrent ? PHASE_GLOWS[seg.phase] : undefined,
               }}
             >
               {width > 4 ? PHASE_LABELS[seg.phase] : ''}
@@ -96,10 +117,11 @@ export function PhaseTimeline({ history, currentPhase, currentPhaseStartedAt }: 
           );
         })}
       </div>
-      <div className="mt-1.5 flex justify-between text-[10px] text-gray-600">
+
+      <div className="flex justify-between px-1 text-[10px] font-bold uppercase tracking-[0.05em] text-[#c1c6d7]">
         <span>-5:00</span>
         <span>-2:30</span>
-        <span>now</span>
+        <span className="holo-text text-[#adc7ff]">now</span>
       </div>
     </div>
   );
