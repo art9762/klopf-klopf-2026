@@ -47,7 +47,7 @@ export function Dashboard() {
     }
   };
 
-  const vehiclesInZone = midzone?.vehicles_in_zone.length ?? 0;
+  const vehiclesInZone = midzone?.vehicles_in_zone ?? [];
   const queueA = queues?.queue_A ?? 0;
   const queueB = queues?.queue_B ?? 0;
 
