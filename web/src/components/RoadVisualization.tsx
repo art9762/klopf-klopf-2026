@@ -35,11 +35,12 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
       const colors = ['#60a5fa', '#38bdf8', '#818cf8', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#fb923c'];
       for (let i = 0; i < 8; i++) {
         const goesRight = i < 4;
+        const laneIdx = goesRight ? (i % 4) : ((i - 4) % 4);
         cars.push({
-          x: i * 0.12 + 0.05,
+          x: laneIdx * 0.22 + 0.05,  // well spaced
           lane: goesRight ? 1 : 0,
-          speed: 0.0008 + (i % 3) * 0.0003,
-          baseSpeed: 0.0008 + (i % 3) * 0.0003,
+          speed: 0.001 + laneIdx * 0.0002,  // slightly different speeds
+          baseSpeed: 0.001 + laneIdx * 0.0002,
           direction: goesRight ? 1 : -1,
           color: colors[i],
         });
@@ -173,18 +174,33 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
 
     // Ambient cars
     const cars = carsRef.current!;
-    cars.forEach((car) => {
+
+    // Sort cars by position for collision detection
+    const rightCars = cars.filter(c => c.direction > 0).sort((a, b) => a.x - b.x);
+    const leftCars = cars.filter(c => c.direction < 0).sort((a, b) => b.x - a.x);
+
+    [...rightCars, ...leftCars].forEach((car) => {
       const isGreen = car.direction > 0 ? isAGreen : isBGreen;
       const carAbsX = roadLeft + car.x * roadW;
       const stopLine = car.direction > 0 ? stopA : stopB;
       const nearStop = car.direction > 0
-        ? (carAbsX > stopLine - roadW * 0.06 && carAbsX < stopLine)
-        : (carAbsX < stopLine + roadW * 0.06 && carAbsX > stopLine);
+        ? (carAbsX > stopLine - roadW * 0.08 && carAbsX < stopLine)
+        : (carAbsX < stopLine + roadW * 0.08 && carAbsX > stopLine);
 
-      if (!isGreen && nearStop) {
-        car.speed = Math.max(0, car.speed - 0.00005);
+      // Collision avoidance: check car ahead in same lane
+      const sameLane = car.direction > 0 ? rightCars : leftCars;
+      const myIdx = sameLane.indexOf(car);
+      let tooClose = false;
+      if (myIdx < sameLane.length - 1) {
+        const ahead = sameLane[myIdx + 1];
+        const dist = Math.abs(ahead.x - car.x);
+        if (dist < 0.08) tooClose = true;  // minimum following distance
+      }
+
+      if ((!isGreen && nearStop) || tooClose) {
+        car.speed = Math.max(0, car.speed - 0.00008);
       } else {
-        car.speed = Math.min(car.baseSpeed, car.speed + 0.00003);
+        car.speed = Math.min(car.baseSpeed, car.speed + 0.00004);
       }
 
       car.x += car.speed * car.direction;
@@ -238,7 +254,7 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
   }
 
   return (
-    <div ref={containerRef} className="glass-panel rounded-2xl p-3 w-full" style={{ height: '280px' }}>
+    <div ref={containerRef} className="glass-panel rounded-2xl p-3 w-full" style={{ height: '320px' }}>
       <canvas ref={canvasRef} className="w-full h-full rounded-xl" />
     </div>
   );

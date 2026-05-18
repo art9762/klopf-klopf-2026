@@ -174,6 +174,10 @@ class TrafficFSM:
         if self._on_phase_change is not None:
             self._on_phase_change(self.state_snapshot())
 
+    def force_phase(self, target: Phase, reason: str) -> None:
+        """Force transition to any phase, bypassing normal rules. For operator overrides only."""
+        self._apply_transition(target, reason)
+
     def set_green_end_time(self, end_time: float) -> None:
         """Allow policy.py to schedule when the current green phase should end."""
         if self._phase not in (Phase.GREEN_A, Phase.GREEN_B):

@@ -155,20 +155,18 @@ class Controller:
 
     def _handle_override(self, action: str, operator: str) -> None:
         if action == "FORCE_GREEN_A":
-            self.fsm.request_transition(Phase.MANUAL, f"operator:{operator}")
-            asyncio.get_event_loop().call_later(
-                5.0, lambda: self.fsm.request_transition(Phase.GREEN_A, "manual_force")
-            )
+            self.fsm.force_phase(Phase.GREEN_A, f"forced by {operator}")
+            self.fsm.set_green_end_time(time.time() + 60.0)
         elif action == "FORCE_GREEN_B":
-            self.fsm.request_transition(Phase.MANUAL, f"operator:{operator}")
-            asyncio.get_event_loop().call_later(
-                5.0, lambda: self.fsm.request_transition(Phase.GREEN_B, "manual_force")
-            )
+            self.fsm.force_phase(Phase.GREEN_B, f"forced by {operator}")
+            self.fsm.set_green_end_time(time.time() + 60.0)
         elif action == "ALL_RED":
-            self.fsm.request_transition(Phase.EMERGENCY, f"operator:{operator}")
-        asyncio.ensure_future(
-            self._emit_event("info", "OVERRIDE", f"{action} by {operator}")
-        )
+            self.fsm.force_phase(Phase.ALL_RED_A_to_B, f"emergency by {operator}")
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._emit_event("info", "OVERRIDE", f"{action} by {operator}"))
+        except RuntimeError:
+            pass
 
     def _handle_scenario(self, scenario_id: str, mode: str) -> None:
         self.policy.set_mode(mode)
