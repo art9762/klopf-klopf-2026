@@ -21,7 +21,7 @@ class Controller:
     def __init__(self) -> None:
         self.safety = SafetyChecker()
         self.policy = TrafficPolicy(mode="adaptive")
-        self.fsm = TrafficFSM(all_red_duration=8.0, on_phase_change=self._on_phase_change)
+        self.fsm = TrafficFSM(all_red_duration=3.0, on_phase_change=self._on_phase_change)
         self.storage = StorageManager()
         self.gateway = gateway
 
@@ -53,15 +53,18 @@ class Controller:
         await self.storage.close()
 
     async def _control_loop(self) -> None:
+        last_comm_warn = 0.0
         while True:
             now = time.time()
 
             if not self.safety.is_comm_healthy() and self.fsm.phase not in (
                 Phase.EMERGENCY, Phase.MANUAL
             ):
-                await self._emit_event("warn", "COMM_LOSS", "midzone messages lost >5s")
+                if now - last_comm_warn > 10.0:
+                    await self._emit_event("warn", "COMM_LOSS", "midzone messages lost >5s")
+                    last_comm_warn = now
                 if self.fsm.phase in (Phase.GREEN_A, Phase.GREEN_B):
-                    self.fsm.set_green_end_time(now + 240.0)
+                    self.fsm.set_green_end_time(now + 60.0)
 
             if self.fsm.phase in (Phase.GREEN_A, Phase.GREEN_B):
                 phase_duration = now - self.fsm.phase_started_at
