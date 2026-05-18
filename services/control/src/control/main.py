@@ -21,7 +21,7 @@ class Controller:
     def __init__(self) -> None:
         self.safety = SafetyChecker()
         self.policy = TrafficPolicy(mode="adaptive")
-        self.fsm = TrafficFSM(all_red_duration=5.0, on_phase_change=self._on_phase_change)
+        self.fsm = TrafficFSM(all_red_duration=8.0, on_phase_change=self._on_phase_change)
         self.storage = StorageManager()
         self.gateway = gateway
 

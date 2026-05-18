@@ -9,7 +9,7 @@ Phase = Literal["GREEN_A", "GREEN_B"]
 T_MIN: float = 15.0
 T_MAX: float = 300.0
 FIXED_GREEN: float = 180.0
-EMPTY_QUEUE_TIMEOUT: float = 30.0
+EMPTY_QUEUE_TIMEOUT: float = 120.0
 
 
 class TrafficPolicy:
@@ -88,20 +88,24 @@ class TrafficPolicy:
         now = time.time()
         if current_phase == "GREEN_A":
             current_queue = self.queue_a
+            opposing_queue = self.queue_b
             last_nonempty_current = self.last_nonempty_a
             priority_current = self.w1 * self.queue_a + self.w2 * self.wait_a
             priority_opposing = self.w1 * self.queue_b + self.w2 * self.wait_b
         else:
             current_queue = self.queue_b
+            opposing_queue = self.queue_a
             last_nonempty_current = self.last_nonempty_b
             priority_current = self.w1 * self.queue_b + self.w2 * self.wait_b
             priority_opposing = self.w1 * self.queue_a + self.w2 * self.wait_a
 
-        if current_queue == 0 and (now - last_nonempty_current) > EMPTY_QUEUE_TIMEOUT:
+        # Only apply empty-queue rule if opposing side actually has demand
+        if current_queue == 0 and opposing_queue > 0 and (now - last_nonempty_current) > EMPTY_QUEUE_TIMEOUT:
             return True, "current side queue empty for >30s"
 
         if (
             priority_opposing > priority_current
+            and priority_opposing > 0
             and phase_duration >= T_MIN
         ):
             return (
