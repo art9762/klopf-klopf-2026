@@ -25,6 +25,24 @@ uv sync
 uv run python -m cv_service --help
 ```
 
+### Smoke-тест YOLO
+
+Быстрая проверка что модель и окружение собраны (детектор видит машины):
+
+```bash
+# на картинках из VisDrone (или любой папки с jpg)
+uv run python scripts/smoke_yolo.py --source datasets/VisDrone/VisDrone_Dataset/VisDrone2019-DET-val/images --limit 6
+
+# на одном видео
+uv run python scripts/smoke_yolo.py --source videos/your_clip.mp4 --limit 120
+
+# с веб-камеры
+uv run python scripts/smoke_yolo.py --source 0
+```
+
+Размеченные кадры пишутся в `outputs/smoke/` (в gitignore). При первом запуске
+ultralytics сам скачает `yolov8n.pt` в кэш.
+
 Будущий целевой запуск (по плану):
 
 ```bash

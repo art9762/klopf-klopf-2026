@@ -66,6 +66,8 @@ services/cv/models/*
 
 # Ultralytics runs
 runs/
+# Smoke test outputs (annotated frames)
+services/cv/outputs/
 
 # Python tooling кэши
 .uv/
