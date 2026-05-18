@@ -9,12 +9,11 @@ interface Props {
 
 interface AmbientCar {
   x: number;
-  y: number;
+  lane: number;
   speed: number;
   baseSpeed: number;
   direction: number;
   color: string;
-  size: number;
 }
 
 export function RoadVisualization({ phase, queues, midzone }: Props) {
@@ -31,35 +30,35 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    // Init ambient cars ONCE
     if (!carsRef.current) {
       const cars: AmbientCar[] = [];
+      const colors = ['#60a5fa', '#38bdf8', '#818cf8', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#fb923c'];
       for (let i = 0; i < 8; i++) {
-        const goesRight = i % 2 === 0;
+        const goesRight = i < 4;
         cars.push({
-          x: (i * 120) + 50,
-          y: goesRight ? 0.62 : 0.38,
-          speed: 0.4 + (i % 3) * 0.15,
-          baseSpeed: 0.4 + (i % 3) * 0.15,
+          x: i * 0.12 + 0.05,
+          lane: goesRight ? 1 : 0,
+          speed: 0.0008 + (i % 3) * 0.0003,
+          baseSpeed: 0.0008 + (i % 3) * 0.0003,
           direction: goesRight ? 1 : -1,
-          color: ['#60a5fa', '#38bdf8', '#818cf8', '#a78bfa', '#34d399'][i % 5],
-          size: 14 + (i % 3) * 3,
+          color: colors[i],
         });
       }
       carsRef.current = cars;
     }
 
-    const observer = new ResizeObserver(() => {
-      canvas.width = container.clientWidth * 2;
-      canvas.height = container.clientHeight * 2;
-      canvas.style.width = container.clientWidth + 'px';
-      canvas.style.height = container.clientHeight + 'px';
-    });
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      const w = container!.clientWidth;
+      const h = container!.clientHeight;
+      canvas!.width = w * dpr;
+      canvas!.height = h * dpr;
+      canvas!.style.width = w + 'px';
+      canvas!.style.height = h + 'px';
+    }
+    resize();
+    const observer = new ResizeObserver(resize);
     observer.observe(container);
-    canvas.width = container.clientWidth * 2;
-    canvas.height = container.clientHeight * 2;
-    canvas.style.width = container.clientWidth + 'px';
-    canvas.style.height = container.clientHeight + 'px';
 
     let running = true;
     function animate() {
@@ -82,207 +81,195 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    const { phase, queues, midzone } = propsRef.current;
     const W = canvas.width;
     const H = canvas.height;
     const t = timeRef.current;
-    const { phase, queues, midzone } = propsRef.current;
 
     ctx.clearRect(0, 0, W, H);
 
-    const w = W;
-    const h = H;
-    const roadY = h * 0.5;
-    const roadH = h * 0.4;
-    const roadTop = roadY - roadH / 2;
-    const roadBot = roadY + roadH / 2;
-
-    // Background gradient
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-    bgGrad.addColorStop(0, '#0f1218');
-    bgGrad.addColorStop(1, '#0a0c10');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, w, h);
+    // All coordinates in normalized [0,1] then scaled
+    const margin = W * 0.03;
+    const roadLeft = margin;
+    const roadRight = W - margin;
+    const roadW = roadRight - roadLeft;
+    const roadTop = H * 0.3;
+    const roadBot = H * 0.75;
+    const roadH = roadBot - roadTop;
+    const roadMid = (roadTop + roadBot) / 2;
+    const laneH = roadH / 2;
 
     // Road surface
-    const roadGrad = ctx.createLinearGradient(0, roadTop, 0, roadBot);
-    roadGrad.addColorStop(0, '#1e2228');
-    roadGrad.addColorStop(0.3, '#2a2f38');
-    roadGrad.addColorStop(0.5, '#323840');
-    roadGrad.addColorStop(0.7, '#2a2f38');
-    roadGrad.addColorStop(1, '#1e2228');
-    ctx.fillStyle = roadGrad;
+    ctx.fillStyle = '#252a30';
     ctx.beginPath();
-    ctx.roundRect(40, roadTop, w - 80, roadH, 12);
+    ctx.roundRect(roadLeft, roadTop, roadW, roadH, 10);
     ctx.fill();
 
-    // Road edge lines
-    ctx.strokeStyle = '#4b5563';
-    ctx.lineWidth = 2;
+    // Road edge markings
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(50, roadTop);
-    ctx.lineTo(w - 50, roadTop);
-    ctx.moveTo(50, roadBot);
-    ctx.lineTo(w - 50, roadBot);
+    ctx.moveTo(roadLeft + 10, roadTop);
+    ctx.lineTo(roadRight - 10, roadTop);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(roadLeft + 10, roadBot);
+    ctx.lineTo(roadRight - 10, roadBot);
     ctx.stroke();
 
     // Center dashed line
-    ctx.setLineDash([20, 14]);
-    ctx.strokeStyle = '#6b7280';
+    ctx.setLineDash([W * 0.02, W * 0.015]);
+    ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(50, roadY);
-    ctx.lineTo(w - 50, roadY);
+    ctx.moveTo(roadLeft + 20, roadMid);
+    ctx.lineTo(roadRight - 20, roadMid);
     ctx.stroke();
     ctx.setLineDash([]);
 
     // Repair zone
-    const zoneX = w * 0.32;
-    const zoneW = w * 0.36;
-    const zoneGrad = ctx.createLinearGradient(zoneX, roadTop, zoneX, roadBot);
-    zoneGrad.addColorStop(0, 'rgba(245, 158, 11, 0.03)');
-    zoneGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.08)');
-    zoneGrad.addColorStop(1, 'rgba(245, 158, 11, 0.03)');
-    ctx.fillStyle = zoneGrad;
-    ctx.fillRect(zoneX, roadTop, zoneW, roadH);
+    const zoneLeft = roadLeft + roadW * 0.3;
+    const zoneRight = roadLeft + roadW * 0.7;
+    const zoneW = zoneRight - zoneLeft;
 
-    // Animated zone border
-    const dashOffset = (t * 40) % 20;
-    ctx.setLineDash([12, 8]);
-    ctx.lineDashOffset = -dashOffset;
-    ctx.strokeStyle = `rgba(245, 158, 11, ${0.5 + Math.sin(t * 2) * 0.2})`;
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.06)';
+    ctx.fillRect(zoneLeft, roadTop, zoneW, roadH);
+
+    const dashOff = (t * 50) % 24;
+    ctx.setLineDash([14, 10]);
+    ctx.lineDashOffset = -dashOff;
+    ctx.strokeStyle = `rgba(245, 158, 11, ${0.6 + Math.sin(t * 2) * 0.2})`;
     ctx.lineWidth = 3;
-    ctx.strokeRect(zoneX, roadTop + 4, zoneW, roadH - 8);
+    ctx.strokeRect(zoneLeft, roadTop + 3, zoneW, roadH - 6);
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
 
     // Zone label
-    ctx.font = `bold ${h * 0.05}px system-ui, sans-serif`;
+    ctx.font = `bold ${H * 0.06}px system-ui`;
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.4)';
-    ctx.fillText('REPAIR ZONE', w / 2, roadY + 4);
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
+    ctx.fillText('REPAIR ZONE', (zoneLeft + zoneRight) / 2, roadMid + H * 0.02);
+
+    // Stop lines
+    const stopA = zoneLeft - 4;
+    const stopB = zoneRight + 4;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(stopA, roadMid + 4);
+    ctx.lineTo(stopA, roadBot - 4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(stopB, roadTop + 4);
+    ctx.lineTo(stopB, roadMid - 4);
+    ctx.stroke();
 
     // Traffic lights
-    const lightAGreen = phase === 'GREEN_A';
-    const lightBGreen = phase === 'GREEN_B';
-    drawTrafficLight(ctx, 90, roadTop - 20, lightAGreen, t, h);
-    drawTrafficLight(ctx, w - 90, roadTop - 20, lightBGreen, t, h);
-
-    // Ambient cars (always moving)
     const isAGreen = phase === 'GREEN_A';
     const isBGreen = phase === 'GREEN_B';
-    const cars = carsRef.current;
-    const stopLineA = zoneX - 30;
-    const stopLineB = zoneX + zoneW + 30;
+    drawLight(ctx, stopA, roadTop - H * 0.02, H * 0.18, isAGreen, t);
+    drawLight(ctx, stopB, roadTop - H * 0.02, H * 0.18, isBGreen, t);
 
+    // Ambient cars
+    const cars = carsRef.current!;
     cars.forEach((car) => {
       const isGreen = car.direction > 0 ? isAGreen : isBGreen;
+      const carAbsX = roadLeft + car.x * roadW;
+      const stopLine = car.direction > 0 ? stopA : stopB;
       const nearStop = car.direction > 0
-        ? (car.x > stopLineA - 40 && car.x < stopLineA + 10)
-        : (car.x < stopLineB + 40 && car.x > stopLineB - 10);
+        ? (carAbsX > stopLine - roadW * 0.06 && carAbsX < stopLine)
+        : (carAbsX < stopLine + roadW * 0.06 && carAbsX > stopLine);
 
       if (!isGreen && nearStop) {
-        car.speed = Math.max(0, car.speed - 0.02);
+        car.speed = Math.max(0, car.speed - 0.00005);
       } else {
-        car.speed = Math.min(car.baseSpeed, car.speed + 0.01);
+        car.speed = Math.min(car.baseSpeed, car.speed + 0.00003);
       }
 
       car.x += car.speed * car.direction;
+      if (car.x > 1.05) car.x = -0.05;
+      if (car.x < -0.05) car.x = 1.05;
 
-      if (car.direction > 0 && car.x > w + 20) car.x = -20;
-      if (car.direction < 0 && car.x < -20) car.x = w + 20;
-
-      const cy = roadTop + car.y * roadH;
-      drawCar2D(ctx, car.x, cy, car.color, car.size, car.direction, t);
+      const cx = roadLeft + car.x * roadW;
+      const cy = car.lane === 1 ? roadMid + laneH * 0.5 : roadMid - laneH * 0.5;
+      drawCar(ctx, cx, cy, car.color, H * 0.07, car.direction);
     });
 
     // Queue cars
     const qA = queues?.queue_A ?? 0;
-    for (let i = 0; i < Math.min(qA, 10); i++) {
-      const x = stopLineA - i * 28 - 20;
-      drawCar2D(ctx, x, roadTop + 0.62 * roadH, '#60a5fa', 16, 1, t);
+    for (let i = 0; i < Math.min(qA, 8); i++) {
+      const cx = stopA - (i + 1) * H * 0.09;
+      const cy = roadMid + laneH * 0.5;
+      drawCar(ctx, cx, cy, '#60a5fa', H * 0.065, 1);
     }
     const qB = queues?.queue_B ?? 0;
-    for (let i = 0; i < Math.min(qB, 10); i++) {
-      const x = stopLineB + i * 28 + 20;
-      drawCar2D(ctx, x, roadTop + 0.38 * roadH, '#60a5fa', 16, -1, t);
+    for (let i = 0; i < Math.min(qB, 8); i++) {
+      const cx = stopB + (i + 1) * H * 0.09;
+      const cy = roadMid - laneH * 0.5;
+      drawCar(ctx, cx, cy, '#60a5fa', H * 0.065, -1);
     }
 
     // Vehicles in zone
     const vehicles = midzone?.vehicles_in_zone ?? [];
     const stuck = new Set(midzone?.stuck_ids ?? []);
     vehicles.forEach((id, i) => {
-      const progress = ((t * 0.1 + i * 0.2) % 1);
-      const x = zoneX + 20 + progress * (zoneW - 40);
-      const y = roadTop + (i % 2 === 0 ? 0.35 : 0.65) * roadH;
+      const progress = ((t * 0.08 + i * 0.2) % 1);
+      const cx = zoneLeft + 20 + progress * (zoneW - 40);
+      const cy = i % 2 === 0 ? roadMid + laneH * 0.5 : roadMid - laneH * 0.5;
       const isStuck = stuck.has(id);
-      const color = isStuck ? '#EF4444' : '#10B981';
-      drawCar2D(ctx, x, y, color, 18, 1, t);
+      drawCar(ctx, cx, cy, isStuck ? '#EF4444' : '#10B981', H * 0.07, 1);
       if (isStuck) {
-        ctx.globalAlpha = 0.3 + Math.sin(t * 5) * 0.2;
-        ctx.fillStyle = '#EF4444';
+        ctx.globalAlpha = 0.3 + Math.sin(t * 5) * 0.15;
         ctx.beginPath();
-        ctx.arc(x + 9, y + 5, 18, 0, Math.PI * 2);
+        ctx.arc(cx, cy, H * 0.05, 0, Math.PI * 2);
+        ctx.fillStyle = '#EF4444';
         ctx.fill();
         ctx.globalAlpha = 1;
       }
     });
 
-    // Side labels
-    ctx.font = `${h * 0.045}px system-ui, sans-serif`;
+    // Labels
+    ctx.font = `${H * 0.055}px system-ui`;
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#6b7280';
-    ctx.fillText('Side A', 90, h - 12);
-    ctx.fillText('Side B', w - 90, h - 12);
-
-    // Queue counts
-    if (qA > 0) {
-      ctx.fillStyle = '#60a5fa';
-      ctx.font = `bold ${h * 0.05}px system-ui, sans-serif`;
-      ctx.fillText(`${qA}`, stopLineA - 60, roadBot + h * 0.08);
-    }
-    if (qB > 0) {
-      ctx.fillStyle = '#60a5fa';
-      ctx.font = `bold ${h * 0.05}px system-ui, sans-serif`;
-      ctx.fillText(`${qB}`, stopLineB + 60, roadBot + h * 0.08);
-    }
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillText('Side A', roadLeft + roadW * 0.1, H * 0.93);
+    ctx.fillText('Side B', roadLeft + roadW * 0.9, H * 0.93);
   }
 
   return (
-    <div ref={containerRef} className="glass-panel rounded-2xl p-3 w-full" style={{ height: '240px' }}>
+    <div ref={containerRef} className="glass-panel rounded-2xl p-3 w-full" style={{ height: '280px' }}>
       <canvas ref={canvasRef} className="w-full h-full rounded-xl" />
     </div>
   );
 }
 
-function drawTrafficLight(ctx: CanvasRenderingContext2D, x: number, y: number, isGreen: boolean, t: number, h: number) {
-  const scale = h * 0.001;
-  const boxW = 28 * scale;
-  const boxH = 56 * scale;
-
-  // Pole
-  ctx.fillStyle = '#374151';
-  ctx.fillRect(x - 3 * scale, y, 6 * scale, boxH + 20 * scale);
+function drawLight(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, isGreen: boolean, t: number) {
+  const w = size * 0.35;
+  const h = size;
 
   // Housing
   ctx.fillStyle = '#111827';
   ctx.beginPath();
-  ctx.roundRect(x - boxW / 2, y - boxH, boxW, boxH, 6 * scale);
+  ctx.roundRect(x - w / 2, y - h, w, h, 6);
   ctx.fill();
-  ctx.strokeStyle = '#374151';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#4b5563';
+  ctx.lineWidth = 2;
   ctx.stroke();
 
-  const r = 9 * scale;
+  const r = w * 0.32;
+  const redY = y - h + r + h * 0.18;
+  const greenY = y - r - h * 0.18;
 
   // Red
   ctx.beginPath();
-  ctx.arc(x, y - boxH + r + 8 * scale, r, 0, Math.PI * 2);
+  ctx.arc(x, redY, r, 0, Math.PI * 2);
   if (!isGreen) {
-    const pulse = 0.85 + Math.sin(t * 3) * 0.15;
-    ctx.fillStyle = `rgba(239, 68, 68, ${pulse})`;
+    const p = 0.85 + Math.sin(t * 3) * 0.15;
+    ctx.fillStyle = `rgba(239, 68, 68, ${p})`;
     ctx.fill();
     ctx.shadowColor = '#EF4444';
-    ctx.shadowBlur = 16 * scale;
+    ctx.shadowBlur = 20;
     ctx.fill();
     ctx.shadowBlur = 0;
   } else {
@@ -292,13 +279,13 @@ function drawTrafficLight(ctx: CanvasRenderingContext2D, x: number, y: number, i
 
   // Green
   ctx.beginPath();
-  ctx.arc(x, y - 8 * scale - r, r, 0, Math.PI * 2);
+  ctx.arc(x, greenY, r, 0, Math.PI * 2);
   if (isGreen) {
-    const pulse = 0.85 + Math.sin(t * 2) * 0.15;
-    ctx.fillStyle = `rgba(16, 185, 129, ${pulse})`;
+    const p = 0.85 + Math.sin(t * 2) * 0.15;
+    ctx.fillStyle = `rgba(16, 185, 129, ${p})`;
     ctx.fill();
     ctx.shadowColor = '#10B981';
-    ctx.shadowBlur = 16 * scale;
+    ctx.shadowBlur = 20;
     ctx.fill();
     ctx.shadowBlur = 0;
   } else {
@@ -307,29 +294,41 @@ function drawTrafficLight(ctx: CanvasRenderingContext2D, x: number, y: number, i
   }
 }
 
-function drawCar2D(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, size: number, direction: number, _t: number) {
+function drawCar(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, size: number, direction: number) {
+  const w = size * 1.8;
+  const h = size * 0.8;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + h * 0.6, w * 0.45, h * 0.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
   // Body
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.roundRect(x, y - size * 0.3, size, size * 0.6, 3);
+  ctx.roundRect(x - w / 2, y - h / 2, w, h, h * 0.25);
   ctx.fill();
 
-  // Roof
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  const roofX = direction > 0 ? x + size * 0.35 : x + size * 0.15;
+  // Roof/windshield
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  const roofX = direction > 0 ? x - w * 0.05 : x - w * 0.3;
   ctx.beginPath();
-  ctx.roundRect(roofX, y - size * 0.2, size * 0.45, size * 0.4, 2);
+  ctx.roundRect(roofX, y - h * 0.35, w * 0.4, h * 0.7, h * 0.15);
   ctx.fill();
 
   // Headlights
-  ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  const hlX = direction > 0 ? x + size - 2 : x;
-  ctx.fillRect(hlX, y - size * 0.15, 2, 3);
-  ctx.fillRect(hlX, y + size * 0.05, 2, 3);
+  ctx.fillStyle = '#ffffff';
+  const hlX = direction > 0 ? x + w / 2 - 3 : x - w / 2;
+  ctx.shadowColor = '#ffffff';
+  ctx.shadowBlur = 6;
+  ctx.fillRect(hlX, y - h * 0.25, 3, h * 0.15);
+  ctx.fillRect(hlX, y + h * 0.1, 3, h * 0.15);
+  ctx.shadowBlur = 0;
 
   // Taillights
-  ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
-  const tlX = direction > 0 ? x : x + size - 2;
-  ctx.fillRect(tlX, y - size * 0.15, 2, 3);
-  ctx.fillRect(tlX, y + size * 0.05, 2, 3);
+  ctx.fillStyle = '#EF4444';
+  const tlX = direction > 0 ? x - w / 2 : x + w / 2 - 3;
+  ctx.fillRect(tlX, y - h * 0.25, 3, h * 0.15);
+  ctx.fillRect(tlX, y + h * 0.1, 3, h * 0.15);
 }
