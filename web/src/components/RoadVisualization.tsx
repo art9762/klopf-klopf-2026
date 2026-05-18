@@ -7,35 +7,53 @@ interface Props {
   midzone: MidzoneStatus | null;
 }
 
-const PHASE_COLORS: Record<string, string> = {
-  GREEN_A: '#10B981',
-  GREEN_B: '#3B82F6',
-  ALL_RED_A_to_B: '#EF4444',
-  ALL_RED_B_to_A: '#EF4444',
-  EMERGENCY: '#F59E0B',
-  MANUAL: '#A855F7',
-};
+interface AmbientCar {
+  x: number;
+  y: number;
+  speed: number;
+  baseSpeed: number;
+  direction: number;
+  color: string;
+  size: number;
+}
 
 export function RoadVisualization({ phase, queues, midzone }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef(0);
   const timeRef = useRef(0);
+  const carsRef = useRef<AmbientCar[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
 
+    // Init ambient cars
+    const cars: AmbientCar[] = [];
+    for (let i = 0; i < 8; i++) {
+      const goesRight = i % 2 === 0;
+      cars.push({
+        x: Math.random() * 800 + 50,
+        y: goesRight ? 0.62 : 0.38,
+        speed: 0.4 + Math.random() * 0.3,
+        baseSpeed: 0.4 + Math.random() * 0.3,
+        direction: goesRight ? 1 : -1,
+        color: ['#60a5fa', '#38bdf8', '#818cf8', '#a78bfa', '#34d399'][i % 5],
+        size: 14 + Math.random() * 6,
+      });
+    }
+    carsRef.current = cars;
+
     const observer = new ResizeObserver(() => {
-      canvas.width = container.clientWidth * window.devicePixelRatio;
-      canvas.height = container.clientHeight * window.devicePixelRatio;
+      canvas.width = container.clientWidth * 2;
+      canvas.height = container.clientHeight * 2;
       canvas.style.width = container.clientWidth + 'px';
       canvas.style.height = container.clientHeight + 'px';
     });
     observer.observe(container);
-    canvas.width = container.clientWidth * window.devicePixelRatio;
-    canvas.height = container.clientHeight * window.devicePixelRatio;
+    canvas.width = container.clientWidth * 2;
+    canvas.height = container.clientHeight * 2;
     canvas.style.width = container.clientWidth + 'px';
     canvas.style.height = container.clientHeight + 'px';
 
@@ -63,153 +81,203 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     const W = canvas.width;
     const H = canvas.height;
     const t = timeRef.current;
-    const dpr = window.devicePixelRatio;
 
     ctx.clearRect(0, 0, W, H);
-    ctx.save();
-    ctx.scale(dpr, dpr);
-    const w = W / dpr;
-    const h = H / dpr;
 
-    const roadY = h / 2;
-    const roadH = 70;
+    const w = W;
+    const h = H;
+    const roadY = h * 0.5;
+    const roadH = h * 0.4;
+    const roadTop = roadY - roadH / 2;
+    const roadBot = roadY + roadH / 2;
 
-    // Road
-    const roadGrad = ctx.createLinearGradient(0, roadY - roadH / 2, 0, roadY + roadH / 2);
-    roadGrad.addColorStop(0, '#2a2d33');
-    roadGrad.addColorStop(0.5, '#3a3d44');
-    roadGrad.addColorStop(1, '#2a2d33');
+    // Background gradient
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+    bgGrad.addColorStop(0, '#0f1218');
+    bgGrad.addColorStop(1, '#0a0c10');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Road surface
+    const roadGrad = ctx.createLinearGradient(0, roadTop, 0, roadBot);
+    roadGrad.addColorStop(0, '#1e2228');
+    roadGrad.addColorStop(0.3, '#2a2f38');
+    roadGrad.addColorStop(0.5, '#323840');
+    roadGrad.addColorStop(0.7, '#2a2f38');
+    roadGrad.addColorStop(1, '#1e2228');
     ctx.fillStyle = roadGrad;
     ctx.beginPath();
-    ctx.roundRect(20, roadY - roadH / 2, w - 40, roadH, 8);
+    ctx.roundRect(40, roadTop, w - 80, roadH, 12);
     ctx.fill();
 
-    // Road edges
+    // Road edge lines
     ctx.strokeStyle = '#4b5563';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(20, roadY - roadH / 2, w - 40, roadH, 8);
+    ctx.moveTo(50, roadTop);
+    ctx.lineTo(w - 50, roadTop);
+    ctx.moveTo(50, roadBot);
+    ctx.lineTo(w - 50, roadBot);
     ctx.stroke();
 
     // Center dashed line
-    ctx.setLineDash([14, 10]);
+    ctx.setLineDash([20, 14]);
     ctx.strokeStyle = '#6b7280';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(30, roadY);
-    ctx.lineTo(w - 30, roadY);
+    ctx.moveTo(50, roadY);
+    ctx.lineTo(w - 50, roadY);
     ctx.stroke();
     ctx.setLineDash([]);
 
     // Repair zone
-    const zoneX = w * 0.3;
-    const zoneW = w * 0.4;
-    const zoneGrad = ctx.createLinearGradient(zoneX, 0, zoneX + zoneW, 0);
-    zoneGrad.addColorStop(0, 'rgba(245, 158, 11, 0.08)');
-    zoneGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.15)');
-    zoneGrad.addColorStop(1, 'rgba(245, 158, 11, 0.08)');
+    const zoneX = w * 0.32;
+    const zoneW = w * 0.36;
+    const zoneGrad = ctx.createLinearGradient(zoneX, roadTop, zoneX, roadBot);
+    zoneGrad.addColorStop(0, 'rgba(245, 158, 11, 0.03)');
+    zoneGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.08)');
+    zoneGrad.addColorStop(1, 'rgba(245, 158, 11, 0.03)');
     ctx.fillStyle = zoneGrad;
-    ctx.fillRect(zoneX, roadY - roadH / 2, zoneW, roadH);
+    ctx.fillRect(zoneX, roadTop, zoneW, roadH);
 
-    // Animated dashed border
-    const dashOffset = (t * 30) % 14;
-    ctx.setLineDash([8, 6]);
+    // Animated zone border
+    const dashOffset = (t * 40) % 20;
+    ctx.setLineDash([12, 8]);
     ctx.lineDashOffset = -dashOffset;
-    ctx.strokeStyle = '#F59E0B';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(zoneX, roadY - roadH / 2, zoneW, roadH);
+    ctx.strokeStyle = `rgba(245, 158, 11, ${0.5 + Math.sin(t * 2) * 0.2})`;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(zoneX, roadTop + 4, zoneW, roadH - 8);
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
 
+    // Zone label
+    ctx.font = `bold ${h * 0.05}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.4)';
+    ctx.fillText('REPAIR ZONE', w / 2, roadY + 4);
+
     // Traffic lights
-    drawTrafficLight(ctx, 55, roadY - roadH / 2 - 10, phase === 'GREEN_A', t);
-    drawTrafficLight(ctx, w - 55, roadY - roadH / 2 - 10, phase === 'GREEN_B', t);
+    const lightAGreen = phase === 'GREEN_A';
+    const lightBGreen = phase === 'GREEN_B';
+    drawTrafficLight(ctx, 90, roadTop - 20, lightAGreen, t, h);
+    drawTrafficLight(ctx, w - 90, roadTop - 20, lightBGreen, t, h);
 
-    // Queue A cars (left side)
+    // Ambient cars (always moving)
+    const isAGreen = phase === 'GREEN_A';
+    const isBGreen = phase === 'GREEN_B';
+    const cars = carsRef.current;
+    const stopLineA = zoneX - 30;
+    const stopLineB = zoneX + zoneW + 30;
+
+    cars.forEach((car) => {
+      const isGreen = car.direction > 0 ? isAGreen : isBGreen;
+      const nearStop = car.direction > 0
+        ? (car.x > stopLineA - 40 && car.x < stopLineA + 10)
+        : (car.x < stopLineB + 40 && car.x > stopLineB - 10);
+
+      if (!isGreen && nearStop) {
+        car.speed = Math.max(0, car.speed - 0.02);
+      } else {
+        car.speed = Math.min(car.baseSpeed, car.speed + 0.01);
+      }
+
+      car.x += car.speed * car.direction;
+
+      if (car.direction > 0 && car.x > w + 20) car.x = -20;
+      if (car.direction < 0 && car.x < -20) car.x = w + 20;
+
+      const cy = roadTop + car.y * roadH;
+      drawCar2D(ctx, car.x, cy, car.color, car.size, car.direction, t);
+    });
+
+    // Queue cars
     const qA = queues?.queue_A ?? 0;
-    for (let i = 0; i < Math.min(qA, 12); i++) {
-      const x = 80 + i * 22;
-      const y = roadY + 8;
-      drawCar(ctx, x, y, '#60a5fa', t, i);
+    for (let i = 0; i < Math.min(qA, 10); i++) {
+      const x = stopLineA - i * 28 - 20;
+      drawCar2D(ctx, x, roadTop + 0.62 * roadH, '#60a5fa', 16, 1, t);
     }
-
-    // Queue B cars (right side)
     const qB = queues?.queue_B ?? 0;
-    for (let i = 0; i < Math.min(qB, 12); i++) {
-      const x = w - 80 - i * 22;
-      const y = roadY - 16;
-      drawCar(ctx, x, y, '#60a5fa', t, i + 20);
+    for (let i = 0; i < Math.min(qB, 10); i++) {
+      const x = stopLineB + i * 28 + 20;
+      drawCar2D(ctx, x, roadTop + 0.38 * roadH, '#60a5fa', 16, -1, t);
     }
 
     // Vehicles in zone
     const vehicles = midzone?.vehicles_in_zone ?? [];
     const stuck = new Set(midzone?.stuck_ids ?? []);
     vehicles.forEach((id, i) => {
-      const progress = ((t * 0.15 + i * 0.25) % 1);
-      const x = zoneX + 15 + progress * (zoneW - 30);
-      const y = roadY + (i % 2 === 0 ? -18 : 10);
+      const progress = ((t * 0.1 + i * 0.2) % 1);
+      const x = zoneX + 20 + progress * (zoneW - 40);
+      const y = roadTop + (i % 2 === 0 ? 0.35 : 0.65) * roadH;
       const isStuck = stuck.has(id);
       const color = isStuck ? '#EF4444' : '#10B981';
-      drawCar(ctx, x, y, color, t, i + 40);
+      drawCar2D(ctx, x, y, color, 18, 1, t);
       if (isStuck) {
-        const pulse = Math.sin(t * 5) * 0.3 + 0.5;
-        ctx.globalAlpha = pulse;
+        ctx.globalAlpha = 0.3 + Math.sin(t * 5) * 0.2;
         ctx.fillStyle = '#EF4444';
         ctx.beginPath();
-        ctx.arc(x + 8, y + 4, 14, 0, Math.PI * 2);
+        ctx.arc(x + 9, y + 5, 18, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
       }
     });
 
-    // Labels
-    ctx.font = '11px system-ui, sans-serif';
+    // Side labels
+    ctx.font = `${h * 0.045}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#9ca3af';
-    ctx.fillText('Side A', 55, h - 10);
-    ctx.fillText('Side B', w - 55, h - 10);
-    ctx.fillStyle = '#F59E0B';
-    ctx.fillText('REPAIR ZONE', w / 2, h - 10);
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('Side A', 90, h - 12);
+    ctx.fillText('Side B', w - 90, h - 12);
 
-    // Phase indicator
-    if (phase) {
-      const color = PHASE_COLORS[phase] ?? '#EF4444';
-      ctx.fillStyle = color;
-      ctx.font = 'bold 12px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(phase.replace(/_/g, ' '), 30, 20);
+    // Queue counts
+    if (qA > 0) {
+      ctx.fillStyle = '#60a5fa';
+      ctx.font = `bold ${h * 0.05}px system-ui, sans-serif`;
+      ctx.fillText(`${qA}`, stopLineA - 60, roadBot + h * 0.08);
     }
-
-    ctx.restore();
+    if (qB > 0) {
+      ctx.fillStyle = '#60a5fa';
+      ctx.font = `bold ${h * 0.05}px system-ui, sans-serif`;
+      ctx.fillText(`${qB}`, stopLineB + 60, roadBot + h * 0.08);
+    }
   }
 
   return (
-    <div ref={containerRef} className="glass-panel rounded-2xl p-2 w-full h-[220px]">
+    <div ref={containerRef} className="glass-panel rounded-2xl p-3 w-full" style={{ height: '240px' }}>
       <canvas ref={canvasRef} className="w-full h-full rounded-xl" />
     </div>
   );
 }
 
-function drawTrafficLight(ctx: CanvasRenderingContext2D, x: number, y: number, isGreen: boolean, t: number) {
+function drawTrafficLight(ctx: CanvasRenderingContext2D, x: number, y: number, isGreen: boolean, t: number, h: number) {
+  const scale = h * 0.001;
+  const boxW = 28 * scale;
+  const boxH = 56 * scale;
+
+  // Pole
+  ctx.fillStyle = '#374151';
+  ctx.fillRect(x - 3 * scale, y, 6 * scale, boxH + 20 * scale);
+
   // Housing
-  ctx.fillStyle = '#1a1d21';
+  ctx.fillStyle = '#111827';
   ctx.beginPath();
-  ctx.roundRect(x - 14, y - 50, 28, 52, 6);
+  ctx.roundRect(x - boxW / 2, y - boxH, boxW, boxH, 6 * scale);
   ctx.fill();
-  ctx.strokeStyle = '#3a3d44';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#374151';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // Red light
-  const redOn = !isGreen;
+  const r = 9 * scale;
+
+  // Red
   ctx.beginPath();
-  ctx.arc(x, y - 34, 8, 0, Math.PI * 2);
-  if (redOn) {
-    const pulse = Math.sin(t * 3) * 0.1 + 0.9;
+  ctx.arc(x, y - boxH + r + 8 * scale, r, 0, Math.PI * 2);
+  if (!isGreen) {
+    const pulse = 0.85 + Math.sin(t * 3) * 0.15;
     ctx.fillStyle = `rgba(239, 68, 68, ${pulse})`;
     ctx.fill();
     ctx.shadowColor = '#EF4444';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 16 * scale;
     ctx.fill();
     ctx.shadowBlur = 0;
   } else {
@@ -217,15 +285,15 @@ function drawTrafficLight(ctx: CanvasRenderingContext2D, x: number, y: number, i
     ctx.fill();
   }
 
-  // Green light
+  // Green
   ctx.beginPath();
-  ctx.arc(x, y - 14, 8, 0, Math.PI * 2);
+  ctx.arc(x, y - 8 * scale - r, r, 0, Math.PI * 2);
   if (isGreen) {
-    const pulse = Math.sin(t * 2) * 0.1 + 0.9;
+    const pulse = 0.85 + Math.sin(t * 2) * 0.15;
     ctx.fillStyle = `rgba(16, 185, 129, ${pulse})`;
     ctx.fill();
     ctx.shadowColor = '#10B981';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 16 * scale;
     ctx.fill();
     ctx.shadowBlur = 0;
   } else {
@@ -234,13 +302,29 @@ function drawTrafficLight(ctx: CanvasRenderingContext2D, x: number, y: number, i
   }
 }
 
-function drawCar(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, t: number, seed: number) {
-  const wobble = Math.sin(t * 1.5 + seed * 0.7) * 0.5;
+function drawCar2D(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, size: number, direction: number, _t: number) {
+  // Body
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.roundRect(x, y + wobble, 16, 8, 3);
+  ctx.roundRect(x, y - size * 0.3, size, size * 0.6, 3);
   ctx.fill();
-  // Windshield
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
-  ctx.fillRect(x + 10, y + wobble + 1, 4, 6);
+
+  // Roof
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  const roofX = direction > 0 ? x + size * 0.35 : x + size * 0.15;
+  ctx.beginPath();
+  ctx.roundRect(roofX, y - size * 0.2, size * 0.45, size * 0.4, 2);
+  ctx.fill();
+
+  // Headlights
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  const hlX = direction > 0 ? x + size - 2 : x;
+  ctx.fillRect(hlX, y - size * 0.15, 2, 3);
+  ctx.fillRect(hlX, y + size * 0.05, 2, 3);
+
+  // Taillights
+  ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
+  const tlX = direction > 0 ? x : x + size - 2;
+  ctx.fillRect(tlX, y - size * 0.15, 2, 3);
+  ctx.fillRect(tlX, y + size * 0.05, 2, 3);
 }
