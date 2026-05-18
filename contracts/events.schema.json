@@ -1,0 +1,281 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://klopf-klopf-2026/contracts/events.schema.json",
+  "title": "MQTT Event Schemas",
+  "description": "JSON Schema definitions for all MQTT message payloads in the traffic control system.",
+  "$defs": {
+    "SensorEntry": {
+      "type": "object",
+      "description": "Published on traffic/sensor/{side}/entry when a vehicle enters the detection zone.",
+      "required": ["ts", "side", "vehicle_id", "vehicle_class", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "ts": {
+          "type": "number",
+          "description": "Unix timestamp in seconds (float)."
+        },
+        "side": {
+          "type": "string",
+          "enum": ["A", "B"],
+          "description": "Road side the vehicle entered from."
+        },
+        "vehicle_id": {
+          "type": "string",
+          "description": "Unique identifier assigned by CV for this vehicle track."
+        },
+        "vehicle_class": {
+          "type": "string",
+          "enum": ["car", "truck", "bus", "emergency"],
+          "description": "Detected vehicle class."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Detection confidence score in [0, 1]."
+        }
+      }
+    },
+    "SensorExit": {
+      "type": "object",
+      "description": "Published on traffic/sensor/{side}/exit when a vehicle exits the detection zone.",
+      "required": ["ts", "side", "vehicle_id", "vehicle_class", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "ts": {
+          "type": "number",
+          "description": "Unix timestamp in seconds (float)."
+        },
+        "side": {
+          "type": "string",
+          "enum": ["A", "B"],
+          "description": "Road side the vehicle exited from."
+        },
+        "vehicle_id": {
+          "type": "string",
+          "description": "Unique identifier assigned by CV for this vehicle track."
+        },
+        "vehicle_class": {
+          "type": "string",
+          "enum": ["car", "truck", "bus", "emergency"],
+          "description": "Detected vehicle class."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Detection confidence score in [0, 1]."
+        }
+      }
+    },
+    "SensorMidzone": {
+      "type": "object",
+      "description": "Published on traffic/sensor/midzone every 1s with current midzone occupancy.",
+      "required": ["ts", "vehicles_in_zone", "stuck_ids"],
+      "additionalProperties": false,
+      "properties": {
+        "ts": {
+          "type": "number",
+          "description": "Unix timestamp in seconds (float)."
+        },
+        "vehicles_in_zone": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of vehicle_ids currently tracked inside the midzone."
+        },
+        "stuck_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Subset of vehicles_in_zone that have been stationary beyond the stuck threshold."
+        }
+      }
+    },
+    "StatePhase": {
+      "type": "object",
+      "description": "Published on traffic/state/phase on every phase change and every 1s as a heartbeat.",
+      "required": ["ts", "phase", "phase_started_at", "phase_will_end_at", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "ts": {
+          "type": "number",
+          "description": "Unix timestamp in seconds (float)."
+        },
+        "phase": {
+          "type": "string",
+          "enum": [
+            "GREEN_A",
+            "GREEN_B",
+            "ALL_RED_A_to_B",
+            "ALL_RED_B_to_A",
+            "EMERGENCY",
+            "MANUAL"
+          ],
+          "description": "Current traffic light phase."
+        },
+        "phase_started_at": {
+          "type": "number",
+          "description": "Unix timestamp when the current phase began."
+        },
+        "phase_will_end_at": {
+          "type": ["number", "null"],
+          "description": "Unix timestamp when the current phase is expected to end, or null if open-ended."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Human-readable reason for the current phase (e.g. 'adaptive', 'timer', 'override')."
+        }
+      }
+    },
+    "StateQueues": {
+      "type": "object",
+      "description": "Published on traffic/state/queues every 500ms with current queue lengths and wait times.",
+      "required": ["ts", "queue_A", "queue_B", "wait_A_sec", "wait_B_sec"],
+      "additionalProperties": false,
+      "properties": {
+        "ts": {
+          "type": "number",
+          "description": "Unix timestamp in seconds (float)."
+        },
+        "queue_A": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of vehicles queued on side A."
+        },
+        "queue_B": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of vehicles queued on side B."
+        },
+        "wait_A_sec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Estimated wait time in seconds for the head of queue A."
+        },
+        "wait_B_sec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Estimated wait time in seconds for the head of queue B."
+        }
+      }
+    },
+    "StateMetrics": {
+      "type": "object",
+      "description": "Published on traffic/state/metrics every 1s with aggregated performance metrics.",
+      "required": [
+        "ts",
+        "avg_delay_A",
+        "avg_delay_B",
+        "max_queue_A",
+        "max_queue_B",
+        "throughput_per_hour",
+        "unsafe_switches",
+        "mode"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ts": {
+          "type": "number",
+          "description": "Unix timestamp in seconds (float)."
+        },
+        "avg_delay_A": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Rolling average vehicle delay in seconds for side A."
+        },
+        "avg_delay_B": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Rolling average vehicle delay in seconds for side B."
+        },
+        "max_queue_A": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum queue length observed on side A in the current session."
+        },
+        "max_queue_B": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum queue length observed on side B in the current session."
+        },
+        "throughput_per_hour": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Extrapolated vehicle throughput per hour based on recent data."
+        },
+        "unsafe_switches": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of phase switches that occurred while the midzone was not clear."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["fixed", "adaptive"],
+          "description": "Current control mode."
+        }
+      }
+    },
+    "EventLog": {
+      "type": "object",
+      "description": "Published on traffic/event/log for notable system events.",
+      "required": ["ts", "level", "code", "msg", "data"],
+      "additionalProperties": false,
+      "properties": {
+        "ts": {
+          "type": "number",
+          "description": "Unix timestamp in seconds (float)."
+        },
+        "level": {
+          "type": "string",
+          "enum": ["info", "warn", "error"],
+          "description": "Severity level of the event."
+        },
+        "code": {
+          "type": "string",
+          "description": "Machine-readable event code (e.g. STUCK_VEHICLE, COMM_LOSS, PHASE_CHANGE)."
+        },
+        "msg": {
+          "type": "string",
+          "description": "Human-readable description of the event."
+        },
+        "data": {
+          "type": "object",
+          "description": "Arbitrary structured context for the event."
+        }
+      }
+    },
+    "CmdOverride": {
+      "type": "object",
+      "description": "Published on traffic/cmd/override by the Web UI operator to force a phase.",
+      "required": ["action", "operator"],
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["FORCE_GREEN_A", "FORCE_GREEN_B", "ALL_RED"],
+          "description": "The override action to apply."
+        },
+        "operator": {
+          "type": "string",
+          "description": "Identifier of the operator issuing the override."
+        }
+      }
+    },
+    "CmdScenario": {
+      "type": "object",
+      "description": "Published on traffic/cmd/scenario to start a named demo scenario.",
+      "required": ["scenario_id", "mode"],
+      "additionalProperties": false,
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "description": "Identifier of the scenario to run (see scenarios.md)."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["fixed", "adaptive"],
+          "description": "Control mode to use during the scenario."
+        }
+      }
+    }
+  }
+}
