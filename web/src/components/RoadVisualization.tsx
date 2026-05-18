@@ -33,21 +33,23 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     if (!carsRef.current) {
       const cars: AmbientCar[] = [];
       const colors = ['#60a5fa', '#38bdf8', '#818cf8', '#a78bfa', '#34d399', '#fbbf24'];
-      // 3 cars per lane, well spaced, same speed per lane
+      // Reversible corridor: ONE lane, cars go one direction at a time
+      // 3 cars going right (Side A → Side B), 3 going left (Side B → Side A)
+      // All in the SAME lane (center), direction controlled by traffic light
       const configs = [
-        // Right lane (direction +1, lane 1)
-        { x: 0.05, lane: 1, dir: 1, speed: 0.0012 },
-        { x: 0.35, lane: 1, dir: 1, speed: 0.0012 },
-        { x: 0.65, lane: 1, dir: 1, speed: 0.0012 },
-        // Left lane (direction -1, lane 0)
-        { x: 0.95, lane: 0, dir: -1, speed: 0.0010 },
-        { x: 0.65, lane: 0, dir: -1, speed: 0.0010 },
-        { x: 0.35, lane: 0, dir: -1, speed: 0.0010 },
+        // Group A: going right
+        { x: 0.05, speed: 0.0012, dir: 1 },
+        { x: 0.15, speed: 0.0012, dir: 1 },
+        { x: 0.25, speed: 0.0012, dir: 1 },
+        // Group B: going left
+        { x: 0.95, speed: 0.0010, dir: -1 },
+        { x: 0.85, speed: 0.0010, dir: -1 },
+        { x: 0.75, speed: 0.0010, dir: -1 },
       ];
       configs.forEach((cfg, i) => {
         cars.push({
           x: cfg.x,
-          lane: cfg.lane,
+          lane: 0, // all same lane (the reversible one)
           speed: cfg.speed,
           baseSpeed: cfg.speed,
           direction: cfg.dir,
@@ -128,10 +130,10 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     ctx.lineTo(roadRight - 10, roadBot);
     ctx.stroke();
 
-    // Center dashed line
-    ctx.setLineDash([W * 0.02, W * 0.015]);
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3;
+    // Center dashed line (direction indicator)
+    ctx.setLineDash([W * 0.015, W * 0.01]);
+    ctx.strokeStyle = isAGreen ? '#10B981' : isBGreen ? '#3B82F6' : '#EF4444';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(roadLeft + 20, roadMid);
     ctx.lineTo(roadRight - 20, roadMid);
@@ -167,12 +169,12 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(stopA, roadMid + 4);
+    ctx.moveTo(stopA, roadTop + 4);
     ctx.lineTo(stopA, roadBot - 4);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(stopB, roadTop + 4);
-    ctx.lineTo(stopB, roadMid - 4);
+    ctx.lineTo(stopB, roadBot - 4);
     ctx.stroke();
 
     // Traffic lights
@@ -181,44 +183,40 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
     drawLight(ctx, stopA, roadTop - H * 0.02, H * 0.18, isAGreen, t);
     drawLight(ctx, stopB, roadTop - H * 0.02, H * 0.18, isBGreen, t);
 
-    // Ambient cars
+    // Ambient cars — reversible corridor: one lane, one direction at a time
     const cars = carsRef.current!;
 
-    // Sort cars by position for collision detection
-    const rightCars = cars.filter(c => c.direction > 0).sort((a, b) => a.x - b.x);
-    const leftCars = cars.filter(c => c.direction < 0).sort((a, b) => b.x - a.x);
-
-    [...rightCars, ...leftCars].forEach((car) => {
-      const isGreen = car.direction > 0 ? isAGreen : isBGreen;
+    cars.forEach((car) => {
+      const isMyTurn = car.direction > 0 ? isAGreen : isBGreen;
       const carAbsX = roadLeft + car.x * roadW;
       const stopLine = car.direction > 0 ? stopA : stopB;
-      const nearStop = car.direction > 0
-        ? (carAbsX > stopLine - roadW * 0.08 && carAbsX < stopLine)
-        : (carAbsX < stopLine + roadW * 0.08 && carAbsX > stopLine);
 
-      // Collision avoidance: check car ahead in same lane
-      const sameLane = car.direction > 0 ? rightCars : leftCars;
-      const myIdx = sameLane.indexOf(car);
-      let tooClose = false;
-      if (myIdx < sameLane.length - 1) {
-        const ahead = sameLane[myIdx + 1];
-        const dist = Math.abs(ahead.x - car.x);
-        if (dist < 0.08) tooClose = true;  // minimum following distance
-      }
-
-      if ((!isGreen && nearStop) || tooClose) {
-        car.speed = Math.max(0, car.speed - 0.00008);
+      if (!isMyTurn) {
+        // Not my turn: slow down and stop before the zone
+        const nearStop = car.direction > 0
+          ? (carAbsX > stopLine - roadW * 0.12 && carAbsX < stopLine + roadW * 0.02)
+          : (carAbsX < stopLine + roadW * 0.12 && carAbsX > stopLine - roadW * 0.02);
+        if (nearStop || car.speed <= 0) {
+          car.speed = Math.max(0, car.speed - 0.0002);
+        } else {
+          // Still approaching stop, keep moving
+          car.speed = Math.min(car.baseSpeed * 0.5, car.speed + 0.00003);
+        }
       } else {
-        car.speed = Math.min(car.baseSpeed, car.speed + 0.00004);
+        // My turn: go!
+        car.speed = Math.min(car.baseSpeed, car.speed + 0.00006);
       }
 
       car.x += car.speed * car.direction;
-      if (car.x > 1.05) car.x = -0.05;
-      if (car.x < -0.05) car.x = 1.05;
 
+      // Wrap around
+      if (car.direction > 0 && car.x > 1.05) car.x = -0.05;
+      if (car.direction < 0 && car.x < -0.05) car.x = 1.05;
+
+      // Draw in center of road
       const cx = roadLeft + car.x * roadW;
-      const cy = car.lane === 1 ? roadMid + laneH * 0.5 : roadMid - laneH * 0.5;
-      drawCar(ctx, cx, cy, car.color, H * 0.07, car.direction);
+      const cy = roadMid;
+      drawCar(ctx, cx, cy, car.color, H * 0.08, car.direction);
     });
 
     // Queue cars
