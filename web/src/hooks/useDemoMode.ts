@@ -18,14 +18,14 @@ const DEMO_EVENTS = [
 export function useDemoMode(
   wsStatus: string,
   dispatch: (msg: WsMessage) => void,
-  hasRealData: boolean,
+  isConnected: boolean,
 ): boolean {
   const activeRef = useRef(false);
   const phaseIdxRef = useRef(0);
   const tickRef = useRef(0);
   const modeRef = useRef<TrafficMode>('adaptive');
 
-  const shouldDemo = wsStatus !== 'connected' || !hasRealData;
+  const shouldDemo = !isConnected;
 
   useEffect(() => {
     if (!shouldDemo) {

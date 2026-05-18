@@ -22,8 +22,7 @@ export function Dashboard() {
   const phaseHistory = useTrafficStore((s) => s.phaseHistory);
 
   const status = useWebSocket(dispatch);
-  const hasRealData = !!(queues && (queues.queue_A > 0 || queues.queue_B > 0)) || !!(metrics && metrics.throughput_per_hour > 0);
-  const isDemo = useDemoMode(status, dispatch, hasRealData);
+  const isDemo = useDemoMode(status, dispatch, status === 'connected');
   const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {

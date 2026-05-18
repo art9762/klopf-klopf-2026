@@ -57,7 +57,7 @@ export function MetricsPanel({ current, fixed, adaptive }: Props) {
     adaptive: +k.adaptiveVal.toFixed(1),
   }));
 
-  const hasData = f || a;
+  const hasData = !!(f || a);
 
   return (
     <div className="card p-4">
@@ -76,7 +76,7 @@ export function MetricsPanel({ current, fixed, adaptive }: Props) {
 
       <div className="grid grid-cols-2 gap-3">
         {kpis.map((kpi) => (
-          <KPICard key={kpi.label} kpi={kpi} />
+          <KPICard key={kpi.label} kpi={kpi} hasMetrics={!!current} />
         ))}
       </div>
 
@@ -105,6 +105,10 @@ export function MetricsPanel({ current, fixed, adaptive }: Props) {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      ) : current ? (
+        <div className="mt-4 flex h-24 items-center justify-center rounded-lg bg-gray-800/30 border border-gray-700/30">
+          <span className="text-xs text-gray-500">Start a scenario to compare metrics</span>
+        </div>
       ) : (
         <div className="mt-4 flex h-36 items-center justify-center rounded-lg bg-gray-800/50">
           <div className="text-center">
@@ -117,12 +121,12 @@ export function MetricsPanel({ current, fixed, adaptive }: Props) {
   );
 }
 
-function KPICard({ kpi }: { kpi: KPI }) {
+function KPICard({ kpi, hasMetrics }: { kpi: KPI; hasMetrics: boolean }) {
   const { label, unit, fixedVal, adaptiveVal, lowerIsBetter } = kpi;
-  const hasData = fixedVal > 0 || adaptiveVal > 0;
+  const hasComparison = fixedVal > 0 && adaptiveVal > 0;
   let delta = 0;
   let improved = false;
-  if (hasData && fixedVal > 0) {
+  if (hasComparison) {
     delta = ((adaptiveVal - fixedVal) / fixedVal) * 100;
     improved = lowerIsBetter ? delta < 0 : delta > 0;
   }
@@ -131,13 +135,13 @@ function KPICard({ kpi }: { kpi: KPI }) {
     <div className="rounded-lg border border-gray-700/50 bg-gray-800/50 p-3 transition-colors hover:border-gray-600">
       <div className="text-[11px] text-gray-500 uppercase tracking-wide">{label}</div>
       <div className="mt-1.5 flex items-end gap-2">
-        {hasData ? (
+        {hasMetrics ? (
           <>
             <div className="animate-count-up text-xl font-bold tabular-nums text-gray-100">
               {adaptiveVal.toFixed(1)}
               <span className="ml-0.5 text-xs font-normal text-gray-500">{unit}</span>
             </div>
-            {fixedVal > 0 && (
+            {hasComparison && (
               <span className={`flex items-center gap-0.5 text-xs font-medium ${improved ? 'text-green-400' : 'text-red-400'}`}>
                 {improved ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
                 {Math.abs(delta).toFixed(0)}%
@@ -148,7 +152,7 @@ function KPICard({ kpi }: { kpi: KPI }) {
           <div className="h-6 w-16 skeleton" />
         )}
       </div>
-      {hasData && (
+      {hasComparison && (
         <div className="mt-1 text-[10px] text-gray-600">
           fixed: {fixedVal.toFixed(1)} {unit}
         </div>
