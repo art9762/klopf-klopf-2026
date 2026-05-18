@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Play, Shield } from 'lucide-react';
 import type { ScenarioId, TrafficMode, OverrideAction } from '../lib/contracts';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = '';
 
 const SCENARIOS: { id: ScenarioId; label: string }[] = [
   { id: 'baseline', label: 'Baseline' },

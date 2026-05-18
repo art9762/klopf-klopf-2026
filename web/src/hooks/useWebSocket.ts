@@ -3,7 +3,7 @@ import type { WsMessage } from '../lib/contracts';
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
-const WS_URL = 'ws://localhost:8000/ws';
+const WS_URL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 const MAX_BACKOFF = 10000;
 
 export function useWebSocket(onMessage: (msg: WsMessage) => void): ConnectionStatus {
@@ -31,7 +31,11 @@ export function useWebSocket(onMessage: (msg: WsMessage) => void): ConnectionSta
 
       ws.onmessage = (ev) => {
         try {
-          const msg: WsMessage = JSON.parse(ev.data);
+          const raw = JSON.parse(ev.data);
+          const msg: WsMessage = {
+            topic: raw.topic,
+            payload: raw.payload ?? raw.data,
+          };
           onMessageRef.current(msg);
         } catch {}
       };
