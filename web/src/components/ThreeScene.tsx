@@ -39,9 +39,9 @@ interface ZoneCarHandle extends CarHandle {
 }
 
 const ROAD_LENGTH = 120;
-const CAR_SPACING = 5;
-const QUEUE_START_A = -14;
-const QUEUE_START_B = 14;
+const CAR_SPACING = 6;
+const QUEUE_START_A = -16;
+const QUEUE_START_B = 16;
 const ZONE_X_MIN = -10;
 const ZONE_X_MAX = 10;
 
@@ -230,8 +230,8 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
     if (!container) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0d1117');
-    scene.fog = new THREE.FogExp2('#0d1117', 0.008);
+    scene.background = new THREE.Color('#121820');
+    scene.fog = new THREE.FogExp2('#121820', 0.005);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
@@ -251,7 +251,7 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.8;
+    renderer.toneMappingExposure = 2.2;
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -260,30 +260,30 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.3;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight(0xadc7ff, 1.2);
+    const mainLight = new THREE.DirectionalLight(0xadc7ff, 1.5);
     mainLight.position.set(-20, 30, 20);
     scene.add(mainLight);
 
-    const accentLight = new THREE.PointLight(0x26fedc, 2, 60);
+    const accentLight = new THREE.PointLight(0x26fedc, 3, 80);
     accentLight.position.set(0, 5, 5);
     scene.add(accentLight);
 
-    const fillLight = new THREE.PointLight(0xadc7ff, 0.5, 80);
+    const fillLight = new THREE.PointLight(0xadc7ff, 1, 100);
     fillLight.position.set(20, 10, -15);
     scene.add(fillLight);
 
-    const gridHelper = new THREE.GridHelper(200, 100, 0x2a2d33, 0x1a1d21);
+    const gridHelper = new THREE.GridHelper(200, 100, 0x3a3d44, 0x252830);
     gridHelper.position.y = -0.1;
     scene.add(gridHelper);
 
     const roadGeometry = new THREE.PlaneGeometry(ROAD_LENGTH, 12);
     const roadMaterial = new THREE.MeshStandardMaterial({
-      color: '#2a2d33',
-      roughness: 0.5,
-      metalness: 0.2,
+      color: '#3a3d44',
+      roughness: 0.4,
+      metalness: 0.1,
     });
     const road = new THREE.Mesh(roadGeometry, roadMaterial);
     road.rotation.x = -Math.PI / 2;
@@ -346,28 +346,29 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
 
     // Ambient cars — always visible for visual effect
     const ambientCars: { group: THREE.Group; speed: number; baseSpeed: number; startX: number; endX: number; direction: number; stopX: number }[] = [];
-    for (let i = 0; i < 6; i++) {
+    const ambientPositions = [
+      { x: -40, right: true },
+      { x: 20, right: true },
+      { x: 35, right: false },
+      { x: -20, right: false },
+    ];
+    ambientPositions.forEach((cfg, i) => {
       const car = createCar(carGeo, edgesGeo, beamGeo);
-      const goesRight = i % 2 === 0;
-      const lane = goesRight ? 2 : -2;
-      const startX = -50 + i * 18;
-      car.group.position.set(startX, 0.4, lane);
-      // Car model faces -X by default (headlights at -1.26x), so:
-      // going right (+X) needs rotation PI to flip it
-      // going left (-X) needs no rotation
-      if (goesRight) car.group.rotation.y = Math.PI;
+      const lane = cfg.right ? 2 : -2;
+      car.group.position.set(cfg.x, 0.4, lane);
+      if (cfg.right) car.group.rotation.y = Math.PI;
       scene.add(car.group);
-      const baseSpeed = 0.05 + (i % 3) * 0.012;
+      const baseSpeed = 0.04 + i * 0.008;
       ambientCars.push({
         group: car.group,
         speed: baseSpeed,
         baseSpeed,
-        startX: goesRight ? -55 : 55,
-        endX: goesRight ? 55 : -55,
-        direction: goesRight ? 1 : -1,
-        stopX: goesRight ? -12 : 12,
+        startX: cfg.right ? -55 : 55,
+        endX: cfg.right ? 55 : -55,
+        direction: cfg.right ? 1 : -1,
+        stopX: cfg.right ? -12 : 12,
       });
-    }
+    });
 
     let running = true;
     let frameId = 0;
@@ -393,20 +394,28 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
         }
       });
 
-      // Animate ambient cars (react to traffic lights)
+      // Animate ambient cars (react to traffic lights + collision avoidance)
       const currentPhase = phaseRef.current;
       const lights = phaseToLights(currentPhase);
-      ambientCars.forEach((car) => {
+      ambientCars.forEach((car, idx) => {
         const isGreen = car.direction > 0 ? lights.a === 'green' : lights.b === 'green';
         const pos = car.group.position.x;
         const approachingZone = car.direction > 0
-          ? (pos >= car.stopX - 3 && pos <= car.stopX + 1)
-          : (pos <= car.stopX + 3 && pos >= car.stopX - 1);
+          ? (pos >= car.stopX - 4 && pos <= car.stopX + 1)
+          : (pos <= car.stopX + 4 && pos >= car.stopX - 1);
 
-        if (!isGreen && approachingZone) {
-          car.speed = Math.max(0, car.speed - 0.003);
+        // Check for car ahead in same lane
+        let carAhead = false;
+        ambientCars.forEach((other, otherIdx) => {
+          if (idx === otherIdx || other.direction !== car.direction) return;
+          const dist = (other.group.position.x - pos) * car.direction;
+          if (dist > 0 && dist < 5) carAhead = true;
+        });
+
+        if ((!isGreen && approachingZone) || carAhead) {
+          car.speed = Math.max(0, car.speed - 0.004);
         } else {
-          car.speed = Math.min(car.baseSpeed, car.speed + 0.002);
+          car.speed = Math.min(car.baseSpeed, car.speed + 0.003);
         }
 
         car.group.position.x += car.speed * car.direction;
