@@ -1,0 +1,81 @@
+# PDF кейсы
+*.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Videos
+services/cv/videos/*.mp4
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+*.env.local
+
+# DB
+*.db
+*.sqlite3
+
+# InfluxDB data
+influxdb-data/
+
+# Claude Code
+.claude/
+.claude-flow/
+.mcp.json
+CLAUDE.md
+
+#CLAUDE
+
+# === CV дополнения (добавлены в ветке cv/setup) ===
+# Тяжёлые артефакты CV-сервиса. .gitkeep оставляем для структуры.
+services/cv/videos/*
+!services/cv/videos/.gitkeep
+services/cv/datasets/*
+!services/cv/datasets/.gitkeep
+services/cv/models/*
+!services/cv/models/.gitkeep
+
+# Расширения видео и весов модели
+*.mov
+*.avi
+*.mkv
+*.webm
+*.pt
+*.onnx
+*.engine
+
+# Ultralytics runs
+runs/
+
+# Python tooling кэши
+.uv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Web (для будущей интеграции с web/)
+node_modules/
+.vite/
+.next/
+coverage/
+*.log
