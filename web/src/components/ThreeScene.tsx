@@ -214,6 +214,7 @@ function disposeCar(car: CarHandle, scene: THREE.Scene) {
 export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
+  const phaseRef = useRef<Phase | null>(phase);
   const lightARef = useRef<TrafficLightHandles | null>(null);
   const lightBRef = useRef<TrafficLightHandles | null>(null);
   const queueCarsARef = useRef<CarHandle[]>([]);
@@ -339,6 +340,31 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
     carEdgesGeoRef.current = edgesGeo;
     carBeamGeoRef.current = beamGeo;
 
+    // Ambient cars — always visible for visual effect
+    const ambientCars: { group: THREE.Group; speed: number; baseSpeed: number; startX: number; endX: number; direction: number; stopX: number }[] = [];
+    for (let i = 0; i < 6; i++) {
+      const car = createCar(carGeo, edgesGeo, beamGeo);
+      const goesRight = i % 2 === 0;
+      const lane = goesRight ? 2 : -2;
+      const startX = -50 + i * 18;
+      car.group.position.set(startX, 0.4, lane);
+      // Car model faces -X by default (headlights at -1.26x), so:
+      // going right (+X) needs rotation PI to flip it
+      // going left (-X) needs no rotation
+      if (goesRight) car.group.rotation.y = Math.PI;
+      scene.add(car.group);
+      const baseSpeed = 0.05 + (i % 3) * 0.012;
+      ambientCars.push({
+        group: car.group,
+        speed: baseSpeed,
+        baseSpeed,
+        startX: goesRight ? -55 : 55,
+        endX: goesRight ? 55 : -55,
+        direction: goesRight ? 1 : -1,
+        stopX: goesRight ? -12 : 12,
+      });
+    }
+
     let running = true;
     let frameId = 0;
     let time = 0;
@@ -360,6 +386,31 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
           car.group.position.x = ZONE_X_MIN;
         } else if (car.direction < 0 && car.group.position.x < ZONE_X_MIN) {
           car.group.position.x = ZONE_X_MAX;
+        }
+      });
+
+      // Animate ambient cars (react to traffic lights)
+      const currentPhase = phaseRef.current;
+      const lights = phaseToLights(currentPhase);
+      ambientCars.forEach((car) => {
+        const isGreen = car.direction > 0 ? lights.a === 'green' : lights.b === 'green';
+        const pos = car.group.position.x;
+        const approachingZone = car.direction > 0
+          ? (pos >= car.stopX - 3 && pos <= car.stopX + 1)
+          : (pos <= car.stopX + 3 && pos >= car.stopX - 1);
+
+        if (!isGreen && approachingZone) {
+          car.speed = Math.max(0, car.speed - 0.003);
+        } else {
+          car.speed = Math.min(car.baseSpeed, car.speed + 0.002);
+        }
+
+        car.group.position.x += car.speed * car.direction;
+
+        if (car.direction > 0 && car.group.position.x > car.endX) {
+          car.group.position.x = car.startX;
+        } else if (car.direction < 0 && car.group.position.x < car.endX) {
+          car.group.position.x = car.startX;
         }
       });
 
@@ -432,6 +483,7 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
 
   // Update phase -> traffic lights
   useEffect(() => {
+    phaseRef.current = phase;
     if (!lightARef.current || !lightBRef.current) return;
     const { a, b } = phaseToLights(phase);
     setLightState(lightARef.current, a);
@@ -453,7 +505,7 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
       const car = createCar(carGeo, edgesGeo, beamGeo);
       const idx = cars.length;
       car.group.position.set(QUEUE_START_A - idx * CAR_SPACING - CAR_SPACING, 0.4, 2);
-      car.group.rotation.y = Math.PI;
+      car.group.rotation.y = Math.PI; // faces right (+X)
       scene.add(car.group);
       cars.push(car);
     }
@@ -478,6 +530,7 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
       const car = createCar(carGeo, edgesGeo, beamGeo);
       const idx = cars.length;
       car.group.position.set(QUEUE_START_B + idx * CAR_SPACING + CAR_SPACING, 0.4, -2);
+      // faces left (-X), no rotation needed
       scene.add(car.group);
       cars.push(car);
     }
@@ -512,9 +565,9 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
       const handle = createCar(carGeo, edgesGeo, beamGeo);
       const direction = idx % 2 === 0 ? 1 : -1;
       const startX = direction > 0 ? ZONE_X_MIN : ZONE_X_MAX;
-      const lane = direction > 0 ? -2 : 2;
+      const lane = direction > 0 ? 2 : -2;
       handle.group.position.set(startX, 0.4, lane);
-      if (direction < 0) handle.group.rotation.y = Math.PI;
+      if (direction > 0) handle.group.rotation.y = Math.PI;
       scene.add(handle.group);
       tracked.set(id, {
         ...handle,
