@@ -186,35 +186,36 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
 
     // Ambient cars — reversible corridor: one lane, one direction at a time
     const cars = carsRef.current!;
+    const stopANorm = (stopA - roadLeft) / roadW;
+    const stopBNorm = (stopB - roadLeft) / roadW;
 
-    cars.forEach((car) => {
+    cars.forEach((car, idx) => {
       const isMyTurn = car.direction > 0 ? isAGreen : isBGreen;
-      const carAbsX = roadLeft + car.x * roadW;
-      const stopLine = car.direction > 0 ? stopA : stopB;
+      const groupIdx = car.direction > 0 ? idx : idx - 3;
 
       if (!isMyTurn) {
-        // Not my turn: slow down and stop before the zone
-        const nearStop = car.direction > 0
-          ? (carAbsX > stopLine - roadW * 0.12 && carAbsX < stopLine + roadW * 0.02)
-          : (carAbsX < stopLine + roadW * 0.12 && carAbsX > stopLine - roadW * 0.02);
-        if (nearStop || car.speed <= 0) {
-          car.speed = Math.max(0, car.speed - 0.0002);
+        // Not my turn: park in queue before stop line
+        car.speed = 0;
+        if (car.direction > 0) {
+          car.x = stopANorm - 0.04 - groupIdx * 0.06;
         } else {
-          // Still approaching stop, keep moving
-          car.speed = Math.min(car.baseSpeed * 0.5, car.speed + 0.00003);
+          car.x = stopBNorm + 0.04 + groupIdx * 0.06;
         }
       } else {
-        // My turn: go!
-        car.speed = Math.min(car.baseSpeed, car.speed + 0.00006);
+        // My turn: drive through
+        car.speed = Math.min(car.baseSpeed, car.speed + 0.00008);
+        car.x += car.speed * car.direction;
+
+        // Wrap: exited the other side, come back to queue start
+        if (car.direction > 0 && car.x > 1.05) {
+          car.x = stopANorm - 0.04 - groupIdx * 0.06;
+        }
+        if (car.direction < 0 && car.x < -0.05) {
+          car.x = stopBNorm + 0.04 + groupIdx * 0.06;
+        }
       }
 
-      car.x += car.speed * car.direction;
-
-      // Wrap around
-      if (car.direction > 0 && car.x > 1.05) car.x = -0.05;
-      if (car.direction < 0 && car.x < -0.05) car.x = 1.05;
-
-      // Draw in center of road
+      // Draw
       const cx = roadLeft + car.x * roadW;
       const cy = roadMid;
       drawCar(ctx, cx, cy, car.color, H * 0.08, car.direction);
