@@ -74,31 +74,32 @@ body {
 
 /* Glassmorphism utilities */
 .glass-panel {
-  background: rgba(30, 32, 35, 0.4);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(139, 144, 160, 0.2);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  background: rgba(30, 32, 35, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(139, 144, 160, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
   transition: all 0.3s ease;
 }
 
 .glass-panel:hover {
-  border-color: rgba(173, 199, 255, 0.3);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5),
-    inset 0 0 20px rgba(173, 199, 255, 0.05);
+  border-color: rgba(173, 199, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6),
+    inset 0 0 20px rgba(173, 199, 255, 0.08);
 }
 
 .glass-button {
-  background: rgba(51, 53, 56, 0.5);
+  background: rgba(51, 53, 56, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(139, 144, 160, 0.3);
+  border: 1px solid rgba(139, 144, 160, 0.4);
   transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .glass-button:hover {
-  background: rgba(173, 199, 255, 0.15);
-  border-color: rgba(173, 199, 255, 0.5);
+  background: rgba(173, 199, 255, 0.2);
+  border-color: rgba(173, 199, 255, 0.6);
   transform: translateY(-1px);
 }
 

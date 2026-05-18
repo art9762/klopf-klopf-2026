@@ -39,9 +39,9 @@ interface ZoneCarHandle extends CarHandle {
 }
 
 const ROAD_LENGTH = 120;
-const CAR_SPACING = 4;
-const QUEUE_START_A = -10;
-const QUEUE_START_B = 10;
+const CAR_SPACING = 5;
+const QUEUE_START_A = -14;
+const QUEUE_START_B = 14;
 const ZONE_X_MIN = -10;
 const ZONE_X_MAX = 10;
 

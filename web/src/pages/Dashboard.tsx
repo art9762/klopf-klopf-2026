@@ -53,8 +53,8 @@ export function Dashboard() {
 
   return (
     <div className="h-screen w-screen overflow-hidden relative bg-[#080a0d]">
-      {/* 3D Background */}
-      <div className="absolute inset-0 z-0">
+      {/* 3D Background — interactive (orbit controls) */}
+      <div className="absolute inset-0 z-0" id="three-container">
         <ThreeScene
           phase={phase?.phase ?? null}
           queueA={queueA}
@@ -64,7 +64,7 @@ export function Dashboard() {
       </div>
 
       {/* UI Overlay */}
-      <div className="absolute inset-0 z-10 pointer-events-none flex flex-col p-8 gap-6">
+      <div className="absolute inset-0 z-20 pointer-events-none flex flex-col p-8 gap-6">
         {/* Top Row */}
         <div className="flex justify-between items-start w-full gap-6">
           {/* Branding panel */}
@@ -144,9 +144,9 @@ export function Dashboard() {
         </div>
 
         {/* Middle: floating columns */}
-        <div className="flex-1 flex justify-between items-stretch gap-6 pointer-events-none">
+        <div className="flex-1 flex justify-between items-stretch gap-6">
           {/* Left column */}
-          <div className="w-[480px] flex flex-col gap-6 justify-end pb-12 pointer-events-none">
+          <div className="w-[480px] flex flex-col gap-6 justify-end pb-12">
             <div className="pointer-events-auto">
               <PhaseTimeline
                 history={phaseHistory}
@@ -164,7 +164,7 @@ export function Dashboard() {
           </div>
 
           {/* Right column */}
-          <div className="w-[400px] flex flex-col gap-6 justify-end pb-12 pointer-events-none">
+          <div className="w-[400px] flex flex-col gap-6 justify-end pb-12">
             <div className="pointer-events-auto">
               <QueueGauges queues={queues} />
             </div>
