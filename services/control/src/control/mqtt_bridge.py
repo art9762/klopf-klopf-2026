@@ -41,8 +41,12 @@ class MqttBridge:
         self._client.on_message = self._handle_message
 
     def start(self) -> None:
-        self._client.connect(self._host, self._port, keepalive=60)
-        self._client.loop_start()
+        try:
+            self._client.connect(self._host, self._port, keepalive=60)
+            self._client.loop_start()
+        except (ConnectionRefusedError, OSError):
+            # MQTT broker not available yet; start loop anyway so it reconnects
+            self._client.loop_start()
 
     def stop(self) -> None:
         self._client.loop_stop()

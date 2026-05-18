@@ -144,20 +144,31 @@ class InfluxStorage:
         self._token = token
         self._org = org
         self._bucket = bucket
-        self._client = InfluxDBClient(url=url, token=token, org=org)
-        self._write_api = self._client.write_api(write_options=SYNCHRONOUS)
-        self._query_api = self._client.query_api()
+        self._client: InfluxDBClient | None = None
+        self._write_api: Any = None
+        self._query_api: Any = None
+        try:
+            self._client = InfluxDBClient(url=url, token=token, org=org)
+            self._write_api = self._client.write_api(write_options=SYNCHRONOUS)
+            self._query_api = self._client.query_api()
+        except Exception:
+            pass
 
     def write_metrics(self, ts: float, metrics_dict: dict[str, Any]) -> None:
-        point = Point("traffic_metrics").time(
-            int(ts * 1_000_000_000), WritePrecision.NANOSECONDS
-        )
-        for key, value in metrics_dict.items():
-            if isinstance(value, str):
-                point = point.tag(key, value)
-            elif isinstance(value, (int, float)):
-                point = point.field(key, value)
-        self._write_api.write(bucket=self._bucket, org=self._org, record=point)
+        if self._write_api is None:
+            return
+        try:
+            point = Point("traffic_metrics").time(
+                int(ts * 1_000_000_000), WritePrecision.NANOSECONDS
+            )
+            for key, value in metrics_dict.items():
+                if isinstance(value, str):
+                    point = point.tag(key, value)
+                elif isinstance(value, (int, float)):
+                    point = point.field(key, value)
+            self._write_api.write(bucket=self._bucket, org=self._org, record=point)
+        except Exception:
+            pass  # InfluxDB unavailable; metrics are still in SQLite
 
     def query_metrics(
         self,
@@ -165,6 +176,8 @@ class InfluxStorage:
         start: float,
         end: float,
     ) -> list[dict[str, Any]]:
+        if self._query_api is None:
+            return []
         start_rfc = _unix_to_rfc3339(start)
         end_rfc = _unix_to_rfc3339(end)
         flux = (
@@ -173,15 +186,19 @@ class InfluxStorage:
             f' |> filter(fn: (r) => r["scenario_id"] == "{scenario_id}")'
             " |> pivot(rowKey:[\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
         )
-        tables = self._query_api.query(flux, org=self._org)
-        results: list[dict[str, Any]] = []
-        for table in tables:
-            for record in table.records:
-                results.append(record.values)
-        return results
+        try:
+            tables = self._query_api.query(flux, org=self._org)
+            results: list[dict[str, Any]] = []
+            for table in tables:
+                for record in table.records:
+                    results.append(record.values)
+            return results
+        except Exception:
+            return []
 
     def close(self) -> None:
-        self._client.close()
+        if self._client is not None:
+            self._client.close()
 
 
 def _unix_to_rfc3339(ts: float) -> str:

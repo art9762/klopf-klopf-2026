@@ -83,6 +83,22 @@ class TestOverridePhases:
         assert not fsm.can_transition(Phase.GREEN_A)
         assert not fsm.can_transition(Phase.GREEN_B)
 
+    def test_override_release_to_either_all_red(self):
+        fsm = TrafficFSM()
+        fsm.request_transition(Phase.EMERGENCY, "test")
+        assert fsm.can_transition(Phase.ALL_RED_A_to_B)
+        assert fsm.can_transition(Phase.ALL_RED_B_to_A)
+
+    def test_force_green_a_via_override(self):
+        """FORCE_GREEN_A: EMERGENCY -> ALL_RED_B_to_A -> GREEN_A"""
+        fsm = TrafficFSM()
+        fsm.request_transition(Phase.GREEN_B, "test")
+        fsm.request_transition(Phase.EMERGENCY, "override")
+        assert fsm.request_transition(Phase.ALL_RED_B_to_A, "clearance")
+        assert fsm.phase == Phase.ALL_RED_B_to_A
+        assert fsm.request_transition(Phase.GREEN_A, "forced")
+        assert fsm.phase == Phase.GREEN_A
+
     def test_override_has_no_end_time(self):
         fsm = TrafficFSM()
         fsm.request_transition(Phase.EMERGENCY, "test")

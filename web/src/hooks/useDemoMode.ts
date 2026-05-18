@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import type { WsMessage, Phase, TrafficMode } from '../lib/contracts';
 
 const PHASES: Phase[] = ['GREEN_A', 'ALL_RED_A_to_B', 'GREEN_B', 'ALL_RED_B_to_A'];
@@ -16,7 +16,7 @@ const DEMO_EVENTS = [
 ];
 
 export function useDemoMode(
-  wsStatus: string,
+  _wsStatus: string,
   dispatch: (msg: WsMessage) => void,
   isConnected: boolean,
 ): boolean {

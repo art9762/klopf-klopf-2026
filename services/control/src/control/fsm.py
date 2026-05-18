@@ -110,9 +110,10 @@ class TrafficFSM:
         if target in (Phase.EMERGENCY, Phase.MANUAL):
             return True
 
-        # Releasing an override: only allowed when currently in an override phase.
+        # Releasing an override: allow transition to any ALL_RED phase for
+        # flexible override resolution (e.g. FORCE_GREEN_A needs ALL_RED_B_to_A).
         if self._phase in (Phase.EMERGENCY, Phase.MANUAL):
-            return target == _RELEASE_PHASE
+            return target in _ALL_RED_PHASES
 
         # Normal cycle: only the next step in the sequence is allowed.
         return _NORMAL_TRANSITIONS.get(self._phase) == target

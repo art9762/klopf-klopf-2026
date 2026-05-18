@@ -126,6 +126,8 @@ class Controller:
         self._loop_task = asyncio.create_task(self._control_loop())
         if DEMO_MODE:
             self._generator = TrafficGenerator(self)
+            # Auto-start baseline scenario so dashboard shows data immediately
+            asyncio.get_running_loop().call_later(2.0, lambda: self._handle_scenario("baseline", "adaptive"))
 
     async def stop(self) -> None:
         if self._generator is not None:
@@ -186,8 +188,8 @@ class Controller:
 
     def _on_phase_change(self, state: PhaseState) -> None:
         self.mqtt.publish_phase(state.model_dump())
-        asyncio.ensure_future(self.gateway.broadcast("traffic/state/phase", state.model_dump()))
-        asyncio.ensure_future(
+        asyncio.create_task(self.gateway.broadcast("traffic/state/phase", state.model_dump()))
+        asyncio.create_task(
             self.storage.log_phase(state.ts, state.phase.value, state.reason, 0.0)
         )
 
@@ -222,12 +224,12 @@ class Controller:
         self.safety.on_midzone(vehicles_in_zone, stuck_ids)
         if stuck_ids:
             for vid in stuck_ids:
-                asyncio.ensure_future(
+                asyncio.create_task(
                     self._emit_event("warn", "STUCK_VEHICLE", f"{vid} inside >30s")
                 )
 
     def _handle_override(self, action: str, operator: str) -> None:
-        asyncio.ensure_future(
+        asyncio.create_task(
             self._emit_event("info", "OVERRIDE", f"{action} by {operator}")
         )
 
@@ -248,13 +250,13 @@ class Controller:
             return
 
         self.fsm.request_transition(Phase.EMERGENCY, f"override:{operator}")
-        asyncio.get_event_loop().call_later(
+        asyncio.get_running_loop().call_later(
             1.0, lambda: self._complete_override(target_all_red, target_green, operator)
         )
 
     def _complete_override(self, all_red: Phase, target_green: Phase, operator: str) -> None:
         self.fsm.request_transition(all_red, f"override_clearance:{operator}")
-        asyncio.get_event_loop().call_later(
+        asyncio.get_running_loop().call_later(
             1.5, lambda: self._force_green(target_green, operator)
         )
 
@@ -266,7 +268,7 @@ class Controller:
         self.safety.reset_counters()
         self._exit_count = 0
         self._exit_count_last_reset = time.time()
-        asyncio.ensure_future(self._start_new_session(scenario_id, mode))
+        asyncio.create_task(self._start_new_session(scenario_id, mode))
 
         if DEMO_MODE and self._generator is not None:
             self._generator.start(scenario_id)

@@ -47,6 +47,7 @@ services:
       INFLUX_ORG: klopf
       INFLUX_BUCKET: traffic
       DB_PATH: /data/control.db
+      DEMO_MODE: "true"
     volumes:
       - control-data:/data
     depends_on:
