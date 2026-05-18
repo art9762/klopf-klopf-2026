@@ -7,6 +7,11 @@ services:
       - "9001:9001"
     volumes:
       - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-t", "healthcheck", "-m", "ok", "-q", "0"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
 
   influxdb:
     image: influxdb:2.7
@@ -22,6 +27,11 @@ services:
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-super-secret-token
     volumes:
       - influxdb-data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   control:
     build:
@@ -40,24 +50,45 @@ services:
     volumes:
       - control-data:/data
     depends_on:
-      - mosquitto
-      - influxdb
+      mosquitto:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
-  # cv:
-  #   build:
-  #     context: ./services/cv
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - mosquitto
+  cv:
+    build:
+      context: ./services/cv
+    restart: unless-stopped
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+    volumes:
+      - ./services/cv/videos:/app/videos
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    profiles:
+      - full
 
-  # web:
-  #   build:
-  #     context: ./services/web
-  #   restart: unless-stopped
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - control
+  web:
+    build:
+      context: ./web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      control:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
   influxdb-data:
