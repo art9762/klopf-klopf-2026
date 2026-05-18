@@ -12,6 +12,7 @@ COPY pyproject.toml uv.lock* ./
 RUN uv sync --frozen --no-install-project 2>/dev/null || uv sync --no-install-project
 
 COPY src/ ./src/
+COPY scripts/ ./scripts/
 COPY configs/ ./configs/
 
 VOLUME /app/videos
