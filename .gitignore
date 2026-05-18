@@ -1,0 +1,44 @@
+# PDF кейсы
+*.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Videos
+services/cv/videos/*.mp4
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+*.env.local
+
+# DB
+*.db
+*.sqlite3
+
+# InfluxDB data
+influxdb-data/
+
+# Claude Code
+.claude/
+
+#CLAUDE
