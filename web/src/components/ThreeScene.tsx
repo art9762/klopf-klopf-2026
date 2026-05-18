@@ -167,7 +167,7 @@ function createCar(carGeo: THREE.BoxGeometry, edgesGeo: THREE.EdgesGeometry, bea
   const wireframeMat = new THREE.LineBasicMaterial({
     color: 0x26fedc,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.8,
   });
   const wireframe = new THREE.LineSegments(edgesGeo, wireframeMat);
 
@@ -230,8 +230,8 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
     if (!container) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#080a0d');
-    scene.fog = new THREE.FogExp2('#080a0d', 0.015);
+    scene.background = new THREE.Color('#0d1117');
+    scene.fog = new THREE.FogExp2('#0d1117', 0.008);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
@@ -251,7 +251,7 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.8;
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -260,26 +260,30 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.3;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight(0xadc7ff, 0.8);
+    const mainLight = new THREE.DirectionalLight(0xadc7ff, 1.2);
     mainLight.position.set(-20, 30, 20);
     scene.add(mainLight);
 
-    const accentLight = new THREE.PointLight(0x26fedc, 1, 50);
+    const accentLight = new THREE.PointLight(0x26fedc, 2, 60);
     accentLight.position.set(0, 5, 5);
     scene.add(accentLight);
 
-    const gridHelper = new THREE.GridHelper(200, 100, 0x1e2023, 0x111316);
+    const fillLight = new THREE.PointLight(0xadc7ff, 0.5, 80);
+    fillLight.position.set(20, 10, -15);
+    scene.add(fillLight);
+
+    const gridHelper = new THREE.GridHelper(200, 100, 0x2a2d33, 0x1a1d21);
     gridHelper.position.y = -0.1;
     scene.add(gridHelper);
 
     const roadGeometry = new THREE.PlaneGeometry(ROAD_LENGTH, 12);
     const roadMaterial = new THREE.MeshStandardMaterial({
-      color: '#1a1d21',
-      roughness: 0.6,
-      metalness: 0.3,
+      color: '#2a2d33',
+      roughness: 0.5,
+      metalness: 0.2,
     });
     const road = new THREE.Mesh(roadGeometry, roadMaterial);
     road.rotation.x = -Math.PI / 2;
@@ -287,9 +291,9 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
 
     const lineGeometry = new THREE.PlaneGeometry(ROAD_LENGTH, 0.15);
     const lineMaterial = new THREE.MeshBasicMaterial({
-      color: '#414754',
+      color: '#6b7280',
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.9,
     });
     const centerLine = new THREE.Mesh(lineGeometry, lineMaterial);
     centerLine.rotation.x = -Math.PI / 2;
@@ -302,7 +306,7 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
     const repairZoneMat = new THREE.LineBasicMaterial({
       color: 0xf59e0b,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.6,
     });
     const repairZone = new THREE.LineSegments(repairZoneEdges, repairZoneMat);
     repairZone.position.set(0, 2, 0);
@@ -312,7 +316,7 @@ export function ThreeScene({ phase, queueA, queueB, vehiclesInZone }: Props) {
     const floorGlowMat = new THREE.MeshBasicMaterial({
       color: 0xf59e0b,
       transparent: true,
-      opacity: 0.1,
+      opacity: 0.15,
       side: THREE.DoubleSide,
     });
     const floorGlow = new THREE.Mesh(floorGlowGeo, floorGlowMat);

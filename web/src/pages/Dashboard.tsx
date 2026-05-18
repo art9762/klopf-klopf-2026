@@ -52,7 +52,7 @@ export function Dashboard() {
   const queueB = queues?.queue_B ?? 0;
 
   return (
-    <div className="h-screen w-screen overflow-hidden relative bg-[#080a0d]">
+    <div className="h-screen w-screen overflow-hidden relative bg-[#0d1117]">
       {/* 3D Background — interactive (orbit controls) */}
       <div className="absolute inset-0 z-0" id="three-container">
         <ThreeScene
