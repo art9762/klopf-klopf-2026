@@ -43,7 +43,7 @@ export function ManualOverride() {
   }
 
   return (
-    <div className="glass-panel rounded-2xl p-6 flex flex-col gap-4">
+    <div className="glass-panel rounded-2xl p-6 flex flex-col gap-4 relative z-30">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-[#e2e2e6]">
         <span className="material-symbols-outlined text-[18px] text-[#adc7ff]">tune</span>
         Command Interface
