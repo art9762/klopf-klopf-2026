@@ -40,5 +40,8 @@ influxdb-data/
 
 # Claude Code
 .claude/
+.claude-flow/
+.mcp.json
+CLAUDE.md
 
 #CLAUDE
