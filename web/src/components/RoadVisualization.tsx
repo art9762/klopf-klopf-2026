@@ -32,19 +32,28 @@ export function RoadVisualization({ phase, queues, midzone }: Props) {
 
     if (!carsRef.current) {
       const cars: AmbientCar[] = [];
-      const colors = ['#60a5fa', '#38bdf8', '#818cf8', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#fb923c'];
-      for (let i = 0; i < 8; i++) {
-        const goesRight = i < 4;
-        const laneIdx = goesRight ? (i % 4) : ((i - 4) % 4);
+      const colors = ['#60a5fa', '#38bdf8', '#818cf8', '#a78bfa', '#34d399', '#fbbf24'];
+      // 3 cars per lane, well spaced, same speed per lane
+      const configs = [
+        // Right lane (direction +1, lane 1)
+        { x: 0.05, lane: 1, dir: 1, speed: 0.0012 },
+        { x: 0.35, lane: 1, dir: 1, speed: 0.0012 },
+        { x: 0.65, lane: 1, dir: 1, speed: 0.0012 },
+        // Left lane (direction -1, lane 0)
+        { x: 0.95, lane: 0, dir: -1, speed: 0.0010 },
+        { x: 0.65, lane: 0, dir: -1, speed: 0.0010 },
+        { x: 0.35, lane: 0, dir: -1, speed: 0.0010 },
+      ];
+      configs.forEach((cfg, i) => {
         cars.push({
-          x: laneIdx * 0.22 + 0.05,  // well spaced
-          lane: goesRight ? 1 : 0,
-          speed: 0.001 + laneIdx * 0.0002,  // slightly different speeds
-          baseSpeed: 0.001 + laneIdx * 0.0002,
-          direction: goesRight ? 1 : -1,
+          x: cfg.x,
+          lane: cfg.lane,
+          speed: cfg.speed,
+          baseSpeed: cfg.speed,
+          direction: cfg.dir,
           color: colors[i],
         });
-      }
+      });
       carsRef.current = cars;
     }
 
