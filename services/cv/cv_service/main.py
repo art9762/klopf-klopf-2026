@@ -66,6 +66,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--conf", type=float, default=0.35, help="Detection confidence threshold.")
     parser.add_argument("--show", action="store_true", help="Show annotated video window (debug).")
     parser.add_argument("--stuck-seconds", type=float, default=30.0, help="Seconds before flagging stuck.")
+    parser.add_argument(
+        "--emergency-id",
+        type=str,
+        default=None,
+        help="Track ID to mark as 'emergency' vehicle (e.g. trk_5). Simulates ambulance.",
+    )
     return parser
 
 
@@ -202,6 +208,8 @@ class CVPipeline:
         self, vid: str, prev: tuple[float, float], cur: tuple[float, float],
         class_name: str, confidence: float,
     ) -> None:
+        if self.args.emergency_id and vid == self.args.emergency_id:
+            class_name = "emergency"
         for side in ("A", "B"):
             entry_line = self.zones.get_line(side, "entry")
             if crossed_line(prev, cur, entry_line):
