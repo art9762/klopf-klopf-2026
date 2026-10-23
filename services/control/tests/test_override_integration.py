@@ -163,12 +163,21 @@ async def test_worker_thread_dispatches_callbacks_on_application_loop(topic, dat
 
 
 async def test_actual_override_from_mqtt_worker_publishes_state_and_log(controller, clock):
+    published = asyncio.Event()
+    topics = set()
+
+    async def record_broadcast(topic, data):
+        topics.add(topic)
+        if {"traffic/state/phase", "traffic/event/log"} <= topics:
+            published.set()
+
+    controller.gateway.broadcast.side_effect = record_broadcast
     controller.mqtt.start()
     try:
         await asyncio.to_thread(controller.mqtt._handle_message, None, None, message(
             "traffic/cmd/override", {"action": "FORCE_GREEN_A", "operator": "synthetic"}
         ))
-        await asyncio.sleep(0)
+        await asyncio.wait_for(published.wait(), timeout=1)
         assert controller.fsm.phase == Phase.ALL_RED_B_to_A
         broadcasts = controller.gateway.broadcast.await_args_list
         assert any(call.args[0] == "traffic/state/phase" for call in broadcasts)
