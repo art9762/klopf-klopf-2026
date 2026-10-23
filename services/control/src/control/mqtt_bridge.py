@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from typing import Any, Callable, Optional
@@ -34,6 +35,8 @@ class MqttBridge:
         self._on_midzone = on_midzone
         self._on_override = on_override
         self._on_scenario = on_scenario
+        self._event_loop: asyncio.AbstractEventLoop | None = None
+        self._generation = 0
 
         self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self._client.on_connect = self._handle_connect
@@ -41,10 +44,14 @@ class MqttBridge:
         self._client.on_message = self._handle_message
 
     def start(self) -> None:
+        self._event_loop = asyncio.get_running_loop()
+        self._generation += 1
         self._client.connect(self._host, self._port, keepalive=60)
         self._client.loop_start()
 
     def stop(self) -> None:
+        self._event_loop = None
+        self._generation += 1
         self._client.loop_stop()
         self._client.disconnect()
 
@@ -105,6 +112,8 @@ class MqttBridge:
         except (json.JSONDecodeError, ValueError):
             return
 
+        if not isinstance(payload, dict):
+            return
         parts = topic.split("/")
 
         if len(parts) == 4 and parts[0] == "traffic" and parts[1] == "sensor" and parts[3] == "entry":
@@ -118,10 +127,25 @@ class MqttBridge:
         elif topic == "traffic/cmd/scenario":
             self._dispatch_scenario(payload)
 
+    def _dispatch(self, callback: Callable[..., None], *args: Any) -> None:
+        # paho loop_start invokes callbacks in its worker thread. All controller
+        # state and asyncio work belongs to the application loop captured at start.
+        loop = self._event_loop
+        if loop is None:
+            return
+        loop.call_soon_threadsafe(self._deliver, self._generation, callback, args)
+
+    def _deliver(
+        self, generation: int, callback: Callable[..., None], args: tuple[Any, ...]
+    ) -> None:
+        # Ignore messages queued before a stop/restart of this bridge.
+        if self._event_loop is not None and self._generation == generation:
+            callback(*args)
+
     def _dispatch_entry(self, side: str, payload: dict[str, Any]) -> None:
         if self._on_entry is None:
             return
-        self._on_entry(
+        self._dispatch(self._on_entry,
             side,
             payload.get("vehicle_id", ""),
             payload.get("vehicle_class", ""),
@@ -132,7 +156,7 @@ class MqttBridge:
     def _dispatch_exit(self, side: str, payload: dict[str, Any]) -> None:
         if self._on_exit is None:
             return
-        self._on_exit(
+        self._dispatch(self._on_exit,
             side,
             payload.get("vehicle_id", ""),
             payload.get("vehicle_class", ""),
@@ -143,7 +167,7 @@ class MqttBridge:
     def _dispatch_midzone(self, payload: dict[str, Any]) -> None:
         if self._on_midzone is None:
             return
-        self._on_midzone(
+        self._dispatch(self._on_midzone,
             list(payload.get("vehicles_in_zone", [])),
             list(payload.get("stuck_ids", [])),
             float(payload.get("ts", 0.0)),
@@ -152,7 +176,7 @@ class MqttBridge:
     def _dispatch_override(self, payload: dict[str, Any]) -> None:
         if self._on_override is None:
             return
-        self._on_override(
+        self._dispatch(self._on_override,
             payload.get("action", ""),
             payload.get("operator", ""),
         )
@@ -160,7 +184,7 @@ class MqttBridge:
     def _dispatch_scenario(self, payload: dict[str, Any]) -> None:
         if self._on_scenario is None:
             return
-        self._on_scenario(
+        self._dispatch(self._on_scenario,
             payload.get("scenario_id", ""),
             payload.get("mode", ""),
         )
