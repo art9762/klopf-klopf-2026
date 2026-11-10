@@ -49,7 +49,8 @@ uv sync --extra dev
 uv run pytest tests/ -v
 ```
 
-64 теста: FSM (22), safety (23), policy (19).
+107 тестов: FSM, safety, policy, REST API и полный путь MQTT → override с искусственными событиями.
+Новый зелёный после clearance ожидает актуальное подтверждение пустой зоны. Подробности — в корневом README.
 
 ## Replay Script
 

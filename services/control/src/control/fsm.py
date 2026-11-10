@@ -132,11 +132,23 @@ class TrafficFSM:
         self._apply_transition(target, reason)
         return True
 
-    def tick(self) -> bool:
+    def release_override(self, target_green: Phase, reason: str) -> bool:
+        """Release an override through a full clearance toward either direction."""
+        if target_green not in (Phase.GREEN_A, Phase.GREEN_B):
+            raise ValueError("Override target must be a green phase")
+        if self._phase not in (Phase.EMERGENCY, Phase.MANUAL):
+            return False
+        clearance = (Phase.ALL_RED_B_to_A if target_green == Phase.GREEN_A
+                     else Phase.ALL_RED_A_to_B)
+        self._apply_transition(clearance, reason)
+        return True
+
+    def tick(self, *, allow_green: bool = True) -> bool:
         """Advance the FSM based on elapsed time.
 
         Should be called regularly (e.g. every 100 ms).
-        Returns True if a transition occurred.
+        Returns True if a transition occurred. The controller may withhold green
+        while sensor evidence is missing or the corridor has not cleared.
         """
         if self._phase_will_end_at is None:
             return False
@@ -147,6 +159,8 @@ class TrafficFSM:
 
         next_phase = _NORMAL_TRANSITIONS.get(self._phase)
         if next_phase is None:
+            return False
+        if next_phase in (Phase.GREEN_A, Phase.GREEN_B) and not allow_green:
             return False
 
         self._apply_transition(next_phase, "timer_expired")

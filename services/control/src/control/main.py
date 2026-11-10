@@ -15,7 +15,7 @@ from control.fsm import Phase, PhaseState, TrafficFSM
 from control.mqtt_bridge import MqttBridge
 from control.policy import TrafficPolicy
 from control.safety import SafetyChecker
-from control.storage import StorageManager, SqliteStorage, InfluxStorage
+from control.storage import StorageManager
 from control.ws_gateway import gateway, router as ws_router
 
 DEMO_MODE = os.environ.get("DEMO_MODE", "true").lower() in ("1", "true", "yes")
@@ -154,18 +154,7 @@ class Controller:
             elif self.safety.is_comm_healthy():
                 self._cv_connected = True
 
-            if self.fsm.phase in (Phase.GREEN_A, Phase.GREEN_B):
-                phase_duration = now - self.fsm.phase_started_at
-                should_switch, reason = self.policy.should_switch(
-                    self.fsm.phase.value, phase_duration
-                )
-                if should_switch and self.safety.is_zone_clear(self.fsm.phase.value):
-                    self.fsm.request_transition(
-                        Phase.ALL_RED_A_to_B if self.fsm.phase == Phase.GREEN_A else Phase.ALL_RED_B_to_A,
-                        reason,
-                    )
-
-            self.fsm.tick()
+            self._advance_phase(now)
 
             self._update_metrics(now)
             queues_msg = {
@@ -183,6 +172,27 @@ class Controller:
             await self.gateway.broadcast("traffic/state/phase", self.fsm.state_snapshot().model_dump())
 
             await asyncio.sleep(0.5)
+
+    def _advance_phase(self, now: float) -> None:
+        if self.fsm.phase in (Phase.GREEN_A, Phase.GREEN_B):
+            should_switch, reason = self.policy.should_switch(
+                self.fsm.phase.value, now - self.fsm.phase_started_at
+            )
+            if should_switch and self.safety.is_zone_clear(self.fsm.phase.value):
+                self.fsm.request_transition(
+                    Phase.ALL_RED_A_to_B if self.fsm.phase == Phase.GREEN_A else Phase.ALL_RED_B_to_A,
+                    reason,
+                )
+
+        # A timer alone cannot establish that a corridor is empty. Check both
+        # directions, since manual overrides can interrupt either traffic flow.
+        can_open = (
+            self.safety.is_comm_healthy()
+            and not self.safety.stuck_ids
+            and self.safety.is_zone_clear(Phase.GREEN_A.value)
+            and self.safety.is_zone_clear(Phase.GREEN_B.value)
+        )
+        self.fsm.tick(allow_green=can_open)
 
     def _on_phase_change(self, state: PhaseState) -> None:
         self.mqtt.publish_phase(state.model_dump())
@@ -237,10 +247,8 @@ class Controller:
 
         if action == "FORCE_GREEN_A":
             target_green = Phase.GREEN_A
-            target_all_red = Phase.ALL_RED_B_to_A
         elif action == "FORCE_GREEN_B":
             target_green = Phase.GREEN_B
-            target_all_red = Phase.ALL_RED_A_to_B
         else:
             return
 
@@ -248,18 +256,7 @@ class Controller:
             return
 
         self.fsm.request_transition(Phase.EMERGENCY, f"override:{operator}")
-        asyncio.get_event_loop().call_later(
-            1.0, lambda: self._complete_override(target_all_red, target_green, operator)
-        )
-
-    def _complete_override(self, all_red: Phase, target_green: Phase, operator: str) -> None:
-        self.fsm.request_transition(all_red, f"override_clearance:{operator}")
-        asyncio.get_event_loop().call_later(
-            1.5, lambda: self._force_green(target_green, operator)
-        )
-
-    def _force_green(self, target: Phase, operator: str) -> None:
-        self.fsm.request_transition(target, f"forced_by:{operator}")
+        self.fsm.release_override(target_green, f"override_clearance:{operator}")
 
     def _handle_scenario(self, scenario_id: str, mode: str) -> None:
         self.policy.set_mode(mode)
